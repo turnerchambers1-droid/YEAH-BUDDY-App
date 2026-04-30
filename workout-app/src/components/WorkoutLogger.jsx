@@ -272,10 +272,18 @@ export default function WorkoutLogger() {
     return (
       <>
         <div className="flex flex-col min-h-screen pb-24 pt-14">
+          {/* Hero banner */}
+          <div className="px-4 pt-6 pb-4 flex flex-col items-center">
+            <h1 className="text-5xl font-black tracking-tight text-white" style={{ letterSpacing: '-0.02em' }}>
+              YEAH <span style={{ color: '#00d4ff' }}>BUDDY</span>
+            </h1>
+            <p className="text-xs font-semibold mt-1 uppercase tracking-widest" style={{ color: '#444' }}>Lightweight baby!</p>
+          </div>
+
           {/* Header */}
-          <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+          <div className="px-4 pt-2 pb-2 flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-white">Start Workout</h1>
+              <h2 className="text-xl font-bold text-white">Start Workout</h2>
               <p className="text-sm mt-0.5" style={{ color: '#555' }}>
                 {store.currentUser ? `Hey ${store.currentUser} 👋` : 'Choose your split'}
               </p>
