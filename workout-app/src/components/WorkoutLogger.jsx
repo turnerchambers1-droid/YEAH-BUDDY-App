@@ -1,9 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Plus, Timer, Trash2, ChevronDown, ChevronUp, ArrowUpCircle, X, Pencil } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronUp, ArrowUpCircle, X, Pencil } from 'lucide-react'
 import { useWorkoutStore } from '../store/workoutStore'
 import { SPLIT_LABELS, EXERCISES } from '../data/exercises'
 import ExerciseSelector from './ExerciseSelector'
 import RestTimer from './RestTimer'
+
+// ── Rotating daily tagline (changes 3× a day) ─────────────────────────────
+function getDailyTagline() {
+  const h   = new Date().getHours()
+  const day = new Date().getDate()
+  const morning   = ['Good morning, handsome 💪', 'Rise and grind, king 👑', 'Early bird gets the gains ☀️', 'Morning pump hits different 🌅']
+  const afternoon = ['No excuses, get in here 🔥', 'Get up, lazy bum 🦁', 'Time to earn it 💯', 'Midday grind, let\'s go ⚡']
+  const evening   = ['Get in loser, we\'re going lifting 🚗', 'Evening grind is underrated 🌙', 'Last one of the day — make it count 🎯', 'Champions don\'t skip night sessions 🏆']
+  const pool = h >= 5 && h < 12 ? morning : h >= 12 && h < 18 ? afternoon : evening
+  return pool[day % pool.length]
+}
 
 // ── Set row ────────────────────────────────────────────────────────────────
 function SetRow({ set, index, onUpdate, onRemove }) {
@@ -13,12 +24,12 @@ function SetRow({ set, index, onUpdate, onRemove }) {
       <div className="flex-1 flex gap-2">
         <div className="flex-1 relative">
           <input type="number" placeholder="lbs" value={set.weight || ''} onChange={e => onUpdate('weight', e.target.value)}
-            className="w-full text-center rounded-lg py-2 text-sm font-semibold outline-none text-white" style={{ background: '#2a2a2a' }} />
+            className="w-full text-center rounded-lg py-2 text-sm font-semibold outline-none text-white" style={{ background: '#2a2a2a', fontSize: 16 }} />
           <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#444' }}>lbs</span>
         </div>
         <div className="flex-1 relative">
           <input type="number" placeholder="reps" value={set.reps || ''} onChange={e => onUpdate('reps', e.target.value)}
-            className="w-full text-center rounded-lg py-2 text-sm font-semibold outline-none text-white" style={{ background: '#2a2a2a' }} />
+            className="w-full text-center rounded-lg py-2 text-sm font-semibold outline-none text-white" style={{ background: '#2a2a2a', fontSize: 16 }} />
           <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#444' }}>reps</span>
         </div>
       </div>
@@ -28,7 +39,7 @@ function SetRow({ set, index, onUpdate, onRemove }) {
 }
 
 // ── Exercise card ──────────────────────────────────────────────────────────
-function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMoveUp, onRemove, pr }) {
+function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMoveUp, onRemove, onUpdateNotes, pr }) {
   const [expanded, setExpanded] = useState(true)
   const maxWeight = exercise.sets.length > 0 ? Math.max(...exercise.sets.map(s => Number(s.weight) || 0)) : 0
   const isPR = maxWeight > 0 && maxWeight > pr
@@ -79,6 +90,15 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
             style={{ background: '#1e1e1e', color: '#00d4ff' }}>
             <Plus size={15} /> Add Set
           </button>
+          {/* Notes */}
+          <textarea
+            placeholder="Notes: setup, machine settings, cues..."
+            value={exercise.notes || ''}
+            onChange={e => onUpdateNotes(exercise.name, e.target.value)}
+            rows={2}
+            className="w-full mt-3 px-3 py-2 rounded-xl text-white resize-none outline-none"
+            style={{ background: '#1a1a1a', fontSize: 14, color: '#aaa', border: '1px solid #2a2a2a', lineHeight: 1.5 }}
+          />
         </div>
       )}
     </div>
@@ -203,7 +223,7 @@ function CustomWorkoutModal({ onStart, onClose }) {
             <label className="text-xs font-bold uppercase tracking-widest mb-2 block" style={{ color: '#555' }}>Workout Name</label>
             <input autoFocus type="text" placeholder='e.g. "Pull Day", "Leg Blast"'
               value={workoutName} onChange={e => setWorkoutName(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl text-white text-sm outline-none" style={{ background: '#141414' }} />
+              className="w-full px-4 py-3 rounded-xl text-white outline-none" style={{ background: '#141414', fontSize: 16 }} />
           </div>
 
           <div>
@@ -245,7 +265,6 @@ function CustomWorkoutModal({ onStart, onClose }) {
 export default function WorkoutLogger() {
   const store = useWorkoutStore()
   const [showSelector,      setShowSelector]      = useState(false)
-  const [showTimer,         setShowTimer]          = useState(false)
   const [showFinishConfirm, setShowFinishConfirm]  = useState(false)
   const [showCustomModal,   setShowCustomModal]    = useState(false)
   const [elapsed,           setElapsed]            = useState(0)
@@ -277,7 +296,7 @@ export default function WorkoutLogger() {
             <h1 className="text-5xl font-black tracking-tight text-white" style={{ letterSpacing: '-0.02em' }}>
               YEAH <span style={{ color: '#22c55e' }}>BUDDY</span>
             </h1>
-            <p className="text-xs font-semibold mt-1 uppercase tracking-widest" style={{ color: '#444' }}>Lightweight baby!</p>
+            <p className="text-xs font-semibold mt-1 tracking-wide" style={{ color: '#555' }}>{getDailyTagline()}</p>
           </div>
 
           {/* Header */}
@@ -343,17 +362,15 @@ export default function WorkoutLogger() {
             <div className="text-white font-bold text-lg">{workoutTitle}</div>
             <div className="text-sm font-mono" style={{ color: '#00d4ff' }}>{fmt(elapsed)}</div>
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => setShowTimer(true)} className="p-2.5 rounded-xl" style={{ background: '#1e1e1e', color: '#888' }}>
-              <Timer size={20} />
-            </button>
-            <button onClick={() => setShowFinishConfirm(true)} className="px-4 py-2.5 rounded-xl font-semibold text-sm text-black" style={{ background: '#00d4ff' }}>
+          <button onClick={() => setShowFinishConfirm(true)} className="px-4 py-2.5 rounded-xl font-semibold text-sm text-black" style={{ background: '#00d4ff' }}>
               Finish
             </button>
-          </div>
         </div>
 
         <div className="flex-1 px-4 pt-4">
+          {/* Inline rest timer */}
+          <RestTimer inline />
+
           {activeWorkout.exercises.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-16 text-gray-600">
               <Plus size={40} strokeWidth={1.5} />
@@ -367,6 +384,7 @@ export default function WorkoutLogger() {
               onUpdateSet={store.updateSet}
               onRemoveSet={store.removeSet}
               onToggleMoveUp={store.toggleReadyToMoveUp}
+              onUpdateNotes={store.updateExerciseNotes}
               onRemove={store.removeExerciseFromWorkout} />
           ))}
           <button onClick={() => setShowSelector(true)}
@@ -378,7 +396,6 @@ export default function WorkoutLogger() {
       </div>
 
       {showSelector && <ExerciseSelector currentExercises={activeWorkout.exercises.map(e => e.name)} onSelect={store.addExerciseToWorkout} onClose={() => setShowSelector(false)} />}
-      {showTimer    && <RestTimer onClose={() => setShowTimer(false)} />}
 
       {showFinishConfirm && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center px-6">

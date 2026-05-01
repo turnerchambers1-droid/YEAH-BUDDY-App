@@ -113,6 +113,13 @@ export function useWorkoutStore() {
     })
   }, [])
 
+  const updateExerciseNotes = useCallback((exerciseName, notes) => {
+    setState(s => {
+      if (!s.activeWorkout) return s
+      return { ...s, activeWorkout: { ...s.activeWorkout, exercises: s.activeWorkout.exercises.map(e => e.name === exerciseName ? { ...e, notes } : e) } }
+    })
+  }, [])
+
   const toggleReadyToMoveUp = useCallback((exerciseName) => {
     setState(s => {
       if (!s.activeWorkout) return s
@@ -177,7 +184,7 @@ export function useWorkoutStore() {
     ...state,
     switchUser, createUser, deleteUserAccount,
     startWorkout, addExerciseToWorkout, removeExerciseFromWorkout,
-    addSet, updateSet, removeSet, toggleReadyToMoveUp,
+    addSet, updateSet, removeSet, toggleReadyToMoveUp, updateExerciseNotes,
     finishWorkout, discardWorkout, deleteWorkout,
     saveTemplate, deleteTemplate, startFromTemplate,
     addCustomExercise,

@@ -1,18 +1,16 @@
 import { useState } from 'react'
-import { Dumbbell, BookOpen, TrendingUp, LayoutTemplate, User } from 'lucide-react'
+import { Dumbbell, BookOpen, TrendingUp, User } from 'lucide-react'
 import WorkoutLogger  from './components/WorkoutLogger'
 import LibraryView    from './components/LibraryView'
 import ProgressView   from './components/ProgressView'
-import TemplatesView  from './components/TemplatesView'
 import UserSetup      from './components/UserSetup'
 import { useWorkoutStore } from './store/workoutStore'
 
 const TABS = [
-  { id: 'workout',   label: 'Workout',   Icon: Dumbbell },
-  { id: 'library',   label: 'Exercises', Icon: BookOpen },
-  { id: 'progress',  label: 'Progress',  Icon: TrendingUp },
-  { id: 'templates', label: 'Templates', Icon: LayoutTemplate },
-  { id: 'profile',   label: 'Profile',   Icon: User },
+  { id: 'workout',  label: 'Workout',   Icon: Dumbbell },
+  { id: 'library',  label: 'Exercises', Icon: BookOpen },
+  { id: 'progress', label: 'Progress',  Icon: TrendingUp },
+  { id: 'profile',  label: 'Profile',   Icon: User },
 ]
 
 export default function App() {
@@ -85,10 +83,9 @@ export default function App() {
   return (
     <div className="relative" style={{ minHeight: '100dvh', background: '#0a0a0a' }}>
       <div style={{ paddingBottom: 72 }}>
-        {tab === 'workout'   && <WorkoutLogger />}
-        {tab === 'library'   && <LibraryView />}
-        {tab === 'progress'  && <ProgressView />}
-        {tab === 'templates' && <TemplatesView />}
+        {tab === 'workout'  && <WorkoutLogger />}
+        {tab === 'library'  && <LibraryView />}
+        {tab === 'progress' && <ProgressView />}
       </div>
 
       {store.activeWorkout && tab !== 'workout' && (

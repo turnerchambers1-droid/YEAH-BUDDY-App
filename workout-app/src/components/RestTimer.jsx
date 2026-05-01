@@ -45,7 +45,7 @@ function Ticks({ r, cx, cy }) {
   return <>{marks}</>
 }
 
-export default function RestTimer({ onClose }) {
+export default function RestTimer({ onClose, inline = false }) {
   const [duration,  setDuration]  = useState(90)
   const [remaining, setRemaining] = useState(90)
   const [running,   setRunning]   = useState(false)
@@ -98,6 +98,54 @@ export default function RestTimer({ onClose }) {
   const mm  = String(Math.floor(remaining / 60)).padStart(2, '0')
   const ss  = String(remaining % 60).padStart(2, '0')
   const pct = duration > 0 ? Math.round(remaining / duration * 100) : 0
+
+  if (inline) return (
+    <div className="rounded-2xl flex flex-col items-center gap-4 py-4 px-2 mb-3"
+      style={{ background: '#0d0d0d', border: '1px solid #2a2a2a' }}>
+      <div className="w-full flex items-center justify-center px-5">
+        <span className="font-bold text-sm tracking-widest uppercase" style={{ color: '#c8b97a', fontFamily: 'Courier New, monospace' }}>REST TIMER</span>
+      </div>
+      <div className="relative" style={{ filter: ding ? 'drop-shadow(0 0 16px #22c55e)' : 'none', transition: 'filter 0.3s' }}>
+        <svg width="180" height="180" viewBox="0 0 220 220">
+          <circle cx={CX} cy={CY} r={OUTER + 6} fill="none" stroke="#c8b97a" strokeWidth="3" opacity="0.6" />
+          <circle cx={CX} cy={CY} r={OUTER} fill="#111" stroke="#333" strokeWidth="1" />
+          <defs><radialGradient id="faceGradI" cx="40%" cy="35%"><stop offset="0%" stopColor="#1e1e1e" stopOpacity="0.8"/><stop offset="100%" stopColor="#080808" stopOpacity="1"/></radialGradient></defs>
+          <circle cx={CX} cy={CY} r={OUTER} fill="url(#faceGradI)" />
+          <Ticks r={R} cx={CX} cy={CY} />
+          {[{v:'12',a:-90},{v:'3',a:0},{v:'6',a:90},{v:'9',a:180}].map(({v,a}) => {
+            const nr=R-16, nx=CX+nr*Math.cos(a*Math.PI/180), ny=CY+nr*Math.sin(a*Math.PI/180)+4
+            return <text key={v} x={nx} y={ny} textAnchor="middle" fontSize="11" fill="#c8b97a" fontFamily="Courier New, monospace" fontWeight="bold">{v}</text>
+          })}
+          <circle cx={CX} cy={CY} r={R-4} fill="none" stroke="#22c55e" strokeWidth="5" strokeLinecap="round"
+            strokeDasharray={circ} strokeDashoffset={progress*circ}
+            style={{ transform:'rotate(-90deg)', transformOrigin:`${CX}px ${CY}px`, transition:'stroke-dashoffset 0.8s linear' }} opacity="0.85" />
+          <line x1={CX} y1={CY} x2={handX} y2={handY} stroke="#22c55e" strokeWidth="2" strokeLinecap="round" style={{ transformOrigin:`${CX}px ${CY}px`, transition:'all 0.8s linear' }} />
+          <circle cx={CX} cy={CY} r="5" fill="#c8b97a" />
+          <circle cx={CX} cy={CY} r="2.5" fill="#111" />
+          <text x={CX} y={CY-14} textAnchor="middle" fontSize="32" fontFamily="Courier New, monospace" fontWeight="bold" fill={ding ? '#22c55e' : '#f5f5f5'} letterSpacing="3">{mm}:{ss}</text>
+          <text x={CX} y={CY+8} textAnchor="middle" fontSize="12" fontFamily="Courier New, monospace" fill="#555" letterSpacing="1">{ding ? '— DONE —' : `${pct}%`}</text>
+        </svg>
+      </div>
+      <div className="flex items-center gap-6">
+        <button onClick={reset} className="w-10 h-10 rounded-full flex items-center justify-center font-mono text-xs font-bold" style={{ background:'#1a1a1a', color:'#c8b97a', border:'1px solid #333' }}>RST</button>
+        <button onClick={() => { if(audioCtx.current) audioCtx.current.resume(); setRunning(r=>!r) }}
+          className="w-16 h-16 rounded-full flex items-center justify-center font-mono text-base font-bold active:scale-95 transition-all"
+          style={{ background:running?'#1a1a1a':'#22c55e', color:running?'#22c55e':'#000', border:running?'2px solid #22c55e':'none', boxShadow:running?'0 0 20px #22c55e44':'0 4px 20px #22c55e66' }}>
+          {running ? '⏸' : '▶'}
+        </button>
+        <div className="w-10 h-10" />
+      </div>
+      <div className="flex gap-2">
+        {PRESETS.map(s => (
+          <button key={s} onClick={() => selectPreset(s)}
+            className="px-3 py-1.5 rounded-full text-xs font-mono font-semibold"
+            style={{ background:duration===s?'#22c55e22':'#1a1a1a', color:duration===s?'#22c55e':'#666', border:duration===s?'1px solid #22c55e66':'1px solid #2a2a2a' }}>
+            {s<60?`${s}s`:`${s/60}m`}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 
   return (
     <div className="fixed inset-0 bg-black/85 z-50 flex items-end justify-center" onClick={onClose}>
