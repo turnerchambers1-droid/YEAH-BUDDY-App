@@ -368,9 +368,6 @@ export default function WorkoutLogger() {
         </div>
 
         <div className="flex-1 px-4 pt-4">
-          {/* Inline rest timer */}
-          <RestTimer inline />
-
           {activeWorkout.exercises.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-16 text-gray-600">
               <Plus size={40} strokeWidth={1.5} />
@@ -392,6 +389,11 @@ export default function WorkoutLogger() {
             style={{ background: '#141414', color: '#00d4ff', border: '1px dashed #1e1e1e' }}>
             <Plus size={18} /> Add Exercise
           </button>
+
+          {/* Rest timer — compact, at bottom */}
+          <div className="mt-4 mb-2">
+            <RestTimer inline compact />
+          </div>
         </div>
       </div>
 
