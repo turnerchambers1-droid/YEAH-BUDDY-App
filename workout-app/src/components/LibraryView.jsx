@@ -1,10 +1,18 @@
-﻿import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { Search, X, ChevronRight, Sparkles, Plus } from 'lucide-react'
 import { EXERCISES, MUSCLE_LABELS, SPLITS, SPLIT_LABELS } from '../data/exercises'
 import { useWorkoutStore } from '../store/workoutStore'
 import MuscleBodyMap from './MuscleBodyMap'
 
-// Suggest muscles for a new exercise name using keyword matching
+// Specific-muscle grouping order (spec item 6)
+const MUSCLE_GROUP_ORDER = [
+  'chest', 'lats', 'mid_back', 'lower_back', 'traps',
+  'front_delt', 'side_delt', 'rear_delt',
+  'biceps', 'triceps', 'forearms',
+  'quads', 'hamstrings', 'glutes', 'calves',
+  'abs', 'adductors', 'abductors',
+]
+
 function suggestMuscles(name) {
   const n = name.toLowerCase()
   const primary = []
@@ -25,11 +33,9 @@ function suggestMuscles(name) {
   if (/row/.test(n) && !/upright row/.test(n)) {
     if (!primary.includes('mid_back')) { primary.push('mid_back'); secondary.push('lats', 'biceps') }
   }
-  if (/shrug|trap/.test(n)) {
-    primary.push('traps')
-  }
+  if (/shrug|trap/.test(n)) primary.push('traps')
   if (/shoulder press|overhead press|military|arnold|front raise|lateral raise|lat raise/.test(n)) {
-    if (/front raise/.test(n)) { primary.push('front_delt') }
+    if (/front raise/.test(n)) primary.push('front_delt')
     else if (/lat raise|lateral/.test(n)) { primary.push('side_delt'); secondary.push('traps') }
     else { primary.push('side_delt'); secondary.push('front_delt', 'triceps') }
   }
@@ -45,17 +51,10 @@ function suggestMuscles(name) {
   if (/glute|hip thrust|back extension/.test(n)) {
     primary.push('glutes'); secondary.push('hamstrings')
   }
-  if (/calf|raise/.test(n) && !/shoulder raise|lat raise|front raise/.test(n)) {
-    primary.push('calves')
-  }
-  if (/crunch|situp|sit-up|ab |abs|leg raise/.test(n)) {
-    primary.push('abs')
-  }
-  if (/wrist|forearm/.test(n)) {
-    primary.push('forearms')
-  }
+  if (/calf|raise/.test(n) && !/shoulder raise|lat raise|front raise/.test(n)) primary.push('calves')
+  if (/crunch|situp|sit-up|ab |abs|leg raise/.test(n)) primary.push('abs')
+  if (/wrist|forearm/.test(n)) primary.push('forearms')
 
-  // deduplicate
   const uniquePrimary = [...new Set(primary)]
   const uniqueSecondary = [...new Set(secondary)].filter(m => !uniquePrimary.includes(m))
   return { primary: uniquePrimary, secondary: uniqueSecondary }
@@ -71,9 +70,7 @@ function NewExerciseModal({ onClose, onAdd }) {
 
   const handleSuggest = () => {
     const result = suggestMuscles(name)
-    setPrimary(result.primary)
-    setSecondary(result.secondary)
-    setSuggested(true)
+    setPrimary(result.primary); setSecondary(result.secondary); setSuggested(true)
   }
 
   const toggleMuscle = (id, type) => {
@@ -100,20 +97,15 @@ function NewExerciseModal({ onClose, onAdd }) {
             onClose()
           }}
           className="px-4 py-2 rounded-xl text-sm font-bold text-black"
-          style={{ background: name.trim() ? '#00d4ff' : '#1e1e1e', color: name.trim() ? '#000' : '#555' }}
-        >
-          Add
-        </button>
+          style={{ background: name.trim() ? '#22c55e' : '#1e1e1e', color: name.trim() ? '#000' : '#555' }}
+        >Add</button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
-        {/* Name */}
         <div>
           <label className="text-xs font-bold uppercase tracking-widest mb-2 block" style={{ color: '#666' }}>Exercise Name</label>
           <input
-            autoFocus
-            type="text"
-            placeholder="e.g. Cable Crossover"
+            autoFocus type="text" placeholder="e.g. Cable Crossover"
             value={name}
             onChange={e => { setName(e.target.value); setSuggested(false) }}
             className="w-full px-4 py-3 rounded-xl text-white text-sm outline-none"
@@ -121,36 +113,33 @@ function NewExerciseModal({ onClose, onAdd }) {
           />
         </div>
 
-        {/* AI Suggest */}
         {name.trim().length > 2 && !suggested && (
           <button
             onClick={handleSuggest}
             className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm"
-            style={{ background: '#00d4ff22', color: '#00d4ff', border: '1px solid #00d4ff44' }}
+            style={{ background: '#22c55e22', color: '#22c55e', border: '1px solid #22c55e44' }}
           >
             <Sparkles size={16} />
             Suggest muscles for "{name}"
           </button>
         )}
 
-        {/* Muscle preview map */}
         {(primary.length > 0 || secondary.length > 0) && (
           <div className="rounded-2xl p-4" style={{ background: '#141414' }}>
             <MuscleBodyMap primaryMuscles={primary} secondaryMuscles={secondary} compact />
             <div className="flex gap-4 justify-center mt-3">
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full" style={{ background: '#00d4ff' }} />
+                <div className="w-3 h-3 rounded-full" style={{ background: '#22c55e' }} />
                 <span className="text-xs" style={{ color: '#888' }}>Primary</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full" style={{ background: '#22c55e' }} />
+                <div className="w-3 h-3 rounded-full" style={{ background: '#99f6e4' }} />
                 <span className="text-xs" style={{ color: '#888' }}>Secondary</span>
               </div>
             </div>
           </div>
         )}
 
-        {/* Muscle selector */}
         <div>
           <label className="text-xs font-bold uppercase tracking-widest mb-2 block" style={{ color: '#666' }}>Muscle Activation</label>
           <div className="flex flex-col gap-1">
@@ -165,24 +154,20 @@ function NewExerciseModal({ onClose, onAdd }) {
                       onClick={() => toggleMuscle(id, 'primary')}
                       className="px-3 py-1 rounded-full text-xs font-semibold"
                       style={{
-                        background: isPrimary ? '#00d4ff22' : '#2a2a2a',
-                        color: isPrimary ? '#00d4ff' : '#555',
-                        border: isPrimary ? '1px solid #00d4ff44' : '1px solid transparent',
+                        background: isPrimary ? '#22c55e22' : '#2a2a2a',
+                        color: isPrimary ? '#22c55e' : '#555',
+                        border: isPrimary ? '1px solid #22c55e44' : '1px solid transparent',
                       }}
-                    >
-                      Primary
-                    </button>
+                    >Primary</button>
                     <button
                       onClick={() => toggleMuscle(id, 'secondary')}
                       className="px-3 py-1 rounded-full text-xs font-semibold"
                       style={{
-                        background: isSecondary ? '#22c55e22' : '#2a2a2a',
-                        color: isSecondary ? '#22c55e' : '#555',
-                        border: isSecondary ? '1px solid #22c55e44' : '1px solid transparent',
+                        background: isSecondary ? '#99f6e422' : '#2a2a2a',
+                        color: isSecondary ? '#99f6e4' : '#555',
+                        border: isSecondary ? '1px solid #99f6e444' : '1px solid transparent',
                       }}
-                    >
-                      Secondary
-                    </button>
+                    >Secondary</button>
                   </div>
                 </div>
               )
@@ -194,7 +179,40 @@ function NewExerciseModal({ onClose, onAdd }) {
   )
 }
 
-function ExerciseDetail({ exercise, onClose, history, pr }) {
+// wger GIF cache + fetcher
+const gifCache = {}
+function useWgerGif(exerciseName) {
+  const [gif, setGif] = useState(exerciseName ? (gifCache[exerciseName] ?? null) : null)
+  const mounted = useRef(true)
+
+  useEffect(() => {
+    mounted.current = true
+    if (!exerciseName) { setGif(null); return }
+    if (gifCache[exerciseName] !== undefined) { setGif(gifCache[exerciseName]); return }
+    const query = encodeURIComponent(exerciseName.split(' ').slice(0, 3).join(' '))
+    fetch(`https://wger.de/api/v2/exercise/search/?term=${query}&language=english&format=json`)
+      .then(r => r.json())
+      .then(data => {
+        const suggestion = data?.suggestions?.[0]
+        if (!suggestion?.data?.id) { gifCache[exerciseName] = null; return null }
+        return fetch(`https://wger.de/api/v2/exerciseimage/?exercise_base=${suggestion.data.id}&format=json`)
+      })
+      .then(r => r?.json())
+      .then(data => {
+        const img = data?.results?.[0]?.image || null
+        gifCache[exerciseName] = img
+        if (mounted.current) setGif(img)
+      })
+      .catch(() => { gifCache[exerciseName] = null })
+    return () => { mounted.current = false }
+  }, [exerciseName])
+
+  return gif
+}
+
+function ExerciseDetail({ exercise, onClose, pr }) {
+  const gif = useWgerGif(exercise.name)
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#0a0a0a' }}>
       <div className="flex items-center gap-3 px-4 pt-14 pb-3" style={{ borderBottom: '1px solid #1e1e1e' }}>
@@ -202,19 +220,26 @@ function ExerciseDetail({ exercise, onClose, history, pr }) {
         <span className="text-white font-semibold text-lg flex-1">{exercise.name}</span>
       </div>
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+        {/* GIF */}
+        {gif && (
+          <div className="rounded-2xl overflow-hidden" style={{ background: '#141414' }}>
+            <img src={gif} alt={exercise.name} className="w-full object-contain max-h-48" loading="lazy" />
+          </div>
+        )}
+
         {/* Muscle map */}
         <div className="rounded-2xl p-4" style={{ background: '#141414' }}>
           <MuscleBodyMap primaryMuscles={exercise.primaryMuscles} secondaryMuscles={exercise.secondaryMuscles} />
           <div className="flex gap-4 justify-center mt-3">
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full" style={{ background: '#00d4ff' }} />
+              <div className="w-3 h-3 rounded-full" style={{ background: '#22c55e' }} />
               <span className="text-xs" style={{ color: '#888' }}>
                 {exercise.primaryMuscles.map(m => MUSCLE_LABELS[m] || m).join(', ')}
               </span>
             </div>
             {exercise.secondaryMuscles.length > 0 && (
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full" style={{ background: '#22c55e' }} />
+                <div className="w-3 h-3 rounded-full" style={{ background: '#99f6e4' }} />
                 <span className="text-xs" style={{ color: '#888' }}>
                   {exercise.secondaryMuscles.map(m => MUSCLE_LABELS[m] || m).join(', ')}
                 </span>
@@ -222,6 +247,7 @@ function ExerciseDetail({ exercise, onClose, history, pr }) {
             )}
           </div>
         </div>
+
         {pr > 0 && (
           <div className="rounded-2xl px-4 py-3 flex items-center gap-3" style={{ background: '#141414' }}>
             <span className="text-2xl">🏆</span>
@@ -239,7 +265,6 @@ function ExerciseDetail({ exercise, onClose, history, pr }) {
 export default function LibraryView() {
   const store = useWorkoutStore()
   const [search, setSearch] = useState('')
-  const [activeSplit, setActiveSplit] = useState('ChestBi')
   const [showNew, setShowNew] = useState(false)
   const [selected, setSelected] = useState(null)
 
@@ -250,17 +275,22 @@ export default function LibraryView() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
-    const pool = q ? allExercises : allExercises.filter(e => e.split === activeSplit)
-    return pool.filter(e => !q || e.name.toLowerCase().includes(q))
-  }, [search, activeSplit, allExercises])
+    return allExercises.filter(e => !q || e.name.toLowerCase().includes(q))
+  }, [search, allExercises])
 
+  // Group by primary muscle (spec item 6)
   const grouped = useMemo(() => {
     const map = {}
     filtered.forEach(e => {
-      if (!map[e.muscleGroup]) map[e.muscleGroup] = []
-      map[e.muscleGroup].push(e)
+      const muscle = e.primaryMuscles?.[0] || 'abs'
+      if (!map[muscle]) map[muscle] = []
+      map[muscle].push(e)
     })
-    return map
+    // Sort groups by spec order
+    const ordered = {}
+    MUSCLE_GROUP_ORDER.forEach(m => { if (map[m]) ordered[m] = map[m] })
+    Object.keys(map).forEach(m => { if (!ordered[m]) ordered[m] = map[m] })
+    return ordered
   }, [filtered])
 
   return (
@@ -271,7 +301,7 @@ export default function LibraryView() {
           <button
             onClick={() => setShowNew(true)}
             className="p-2.5 rounded-xl"
-            style={{ background: '#141414', color: '#00d4ff' }}
+            style={{ background: '#141414', color: '#22c55e' }}
           >
             <Plus size={20} />
           </button>
@@ -283,7 +313,7 @@ export default function LibraryView() {
             <Search size={16} className="text-gray-500 flex-shrink-0" />
             <input
               type="text"
-              placeholder="Search exercises..."
+              placeholder="Search by name or muscle..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="flex-1 bg-transparent text-white text-sm outline-none placeholder-gray-500"
@@ -292,30 +322,13 @@ export default function LibraryView() {
           </div>
         </div>
 
-        {/* Split tabs */}
-        {!search && (
-          <div className="flex px-4 gap-2 pb-4 overflow-x-auto">
-            {SPLITS.map(s => (
-              <button
-                key={s}
-                onClick={() => setActiveSplit(s)}
-                className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold"
-                style={{
-                  background: activeSplit === s ? '#00d4ff' : '#141414',
-                  color: activeSplit === s ? '#000' : '#888',
-                }}
-              >
-                {SPLIT_LABELS[s]}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* List */}
+        {/* List — grouped by specific muscle */}
         <div className="flex-1 px-4 pb-4">
-          {Object.entries(grouped).map(([group, exercises]) => (
-            <div key={group} className="mb-5">
-              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#00d4ff' }}>{group}</div>
+          {Object.entries(grouped).map(([muscle, exercises]) => (
+            <div key={muscle} className="mb-5">
+              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#22c55e' }}>
+                {MUSCLE_LABELS[muscle] || muscle}
+              </div>
               <div className="rounded-2xl overflow-hidden" style={{ background: '#141414' }}>
                 {exercises.map((ex, i) => {
                   const pr = store.getPersonalRecord(ex.name)
@@ -326,22 +339,22 @@ export default function LibraryView() {
                       className="w-full flex items-center justify-between px-4 py-3 text-left active:bg-white/5"
                       style={{ borderBottom: i < exercises.length - 1 ? '1px solid #1e1e1e' : 'none' }}
                     >
-                      <div>
-                        <div className="text-white text-sm font-medium">{ex.name}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white text-sm font-medium truncate">{ex.name}</div>
                         <div className="text-xs mt-0.5 flex flex-wrap gap-1">
                           {ex.primaryMuscles.map(m => (
-                            <span key={m} className="px-1.5 py-0.5 rounded-full text-xs" style={{ background: '#00d4ff22', color: '#00d4ff' }}>
+                            <span key={m} className="px-1.5 py-0.5 rounded-full text-xs" style={{ background: '#22c55e22', color: '#22c55e' }}>
                               {MUSCLE_LABELS[m] || m}
                             </span>
                           ))}
                           {ex.secondaryMuscles.slice(0, 2).map(m => (
-                            <span key={m} className="px-1.5 py-0.5 rounded-full text-xs" style={{ background: '#22c55e11', color: '#22c55e' }}>
+                            <span key={m} className="px-1.5 py-0.5 rounded-full text-xs" style={{ background: '#99f6e411', color: '#99f6e4' }}>
                               {MUSCLE_LABELS[m] || m}
                             </span>
                           ))}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 ml-2 flex-shrink-0">
                         {pr > 0 && <span className="text-xs font-bold" style={{ color: '#22c55e' }}>{pr}lbs</span>}
                         <ChevronRight size={16} className="text-gray-700" />
                       </div>

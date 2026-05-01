@@ -1,8 +1,8 @@
 // Anatomically-accurate SVG muscle map — styled after reference diagram
 // No text labels on the figure itself; muscles highlight on active exercises
 
-const ACCENT    = '#00d4ff'   // primary muscle
-const SECONDARY = '#22c55e'   // secondary muscle
+const ACCENT    = '#22c55e'   // primary muscle — solid green
+const SECONDARY = '#99f6e4'   // secondary muscle — light teal
 const BASE      = '#2a2a2a'   // inactive
 const SKIN      = '#1c1c1c'   // body fill
 const OUTLINE   = '#3a3a3a'   // body stroke

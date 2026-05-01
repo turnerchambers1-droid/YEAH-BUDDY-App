@@ -19,10 +19,22 @@ export function removeUser(username) {
 
 function dataKey(username) { return `gaintracker_${username}_v1` }
 
+function purgeRecentlyDeleted(data) {
+  const THREE_DAYS = 3 * 24 * 60 * 60 * 1000
+  const now = Date.now()
+  return {
+    ...data,
+    recentlyDeleted: (data.recentlyDeleted || []).filter(w => now - w.deletedAt < THREE_DAYS),
+  }
+}
+
 function loadData(username) {
   if (!username) return defaultState()
-  try { const r = localStorage.getItem(dataKey(username)); return r ? JSON.parse(r) : defaultState() }
-  catch { return defaultState() }
+  try {
+    const r = localStorage.getItem(dataKey(username))
+    const parsed = r ? JSON.parse(r) : defaultState()
+    return purgeRecentlyDeleted({ ...defaultState(), ...parsed })
+  } catch { return defaultState() }
 }
 
 function saveData(username, data) {
@@ -31,7 +43,15 @@ function saveData(username, data) {
 }
 
 function defaultState() {
-  return { workouts: [], activeWorkout: null, templates: [], customExercises: [] }
+  return {
+    workouts: [],
+    activeWorkout: null,
+    templates: [],
+    customExercises: [],
+    archivedWorkouts: [],
+    recentlyDeleted: [],
+    savedHomeTiles: [],
+  }
 }
 
 // ── Global reactive store ─────────────────────────────────────────────────
@@ -46,6 +66,9 @@ function setState(updater) {
     activeWorkout: globalState.activeWorkout,
     templates: globalState.templates,
     customExercises: globalState.customExercises,
+    archivedWorkouts: globalState.archivedWorkouts,
+    recentlyDeleted: globalState.recentlyDeleted,
+    savedHomeTiles: globalState.savedHomeTiles,
   })
   listeners.forEach(fn => fn(globalState))
 }
@@ -139,8 +162,80 @@ export function useWorkoutStore() {
     setState(s => ({ ...s, activeWorkout: null }))
   }, [])
 
+  // Hard delete (legacy, kept for purge use)
   const deleteWorkout = useCallback((id) => {
     setState(s => ({ ...s, workouts: s.workouts.filter(w => w.id !== id) }))
+  }, [])
+
+  // Soft delete — moves to Recently Deleted with 3-day expiry
+  const softDeleteWorkout = useCallback((id) => {
+    setState(s => {
+      const workout = s.workouts.find(w => w.id === id)
+      if (!workout) return s
+      return {
+        ...s,
+        workouts: s.workouts.filter(w => w.id !== id),
+        recentlyDeleted: [{ ...workout, deletedAt: Date.now() }, ...(s.recentlyDeleted || [])],
+      }
+    })
+  }, [])
+
+  const restoreDeletedWorkout = useCallback((id) => {
+    setState(s => {
+      const workout = (s.recentlyDeleted || []).find(w => w.id === id)
+      if (!workout) return s
+      const { deletedAt, ...clean } = workout
+      return {
+        ...s,
+        recentlyDeleted: (s.recentlyDeleted || []).filter(w => w.id !== id),
+        workouts: [clean, ...s.workouts],
+      }
+    })
+  }, [])
+
+  const permanentDeleteWorkout = useCallback((id) => {
+    setState(s => ({ ...s, recentlyDeleted: (s.recentlyDeleted || []).filter(w => w.id !== id) }))
+  }, [])
+
+  // Archive — hides from home, accessible in settings
+  const archiveWorkout = useCallback((id) => {
+    setState(s => {
+      const workout = s.workouts.find(w => w.id === id)
+      if (!workout) return s
+      return {
+        ...s,
+        workouts: s.workouts.filter(w => w.id !== id),
+        archivedWorkouts: [{ ...workout, archivedAt: Date.now() }, ...(s.archivedWorkouts || [])],
+      }
+    })
+  }, [])
+
+  const unarchiveWorkout = useCallback((id) => {
+    setState(s => {
+      const workout = (s.archivedWorkouts || []).find(w => w.id === id)
+      if (!workout) return s
+      const { archivedAt, ...clean } = workout
+      return {
+        ...s,
+        archivedWorkouts: (s.archivedWorkouts || []).filter(w => w.id !== id),
+        workouts: [clean, ...s.workouts],
+      }
+    })
+  }, [])
+
+  // ── Home Tiles ─────────────────────────────────────────────────────────────
+  const saveHomeTile = useCallback((name, exerciseNames) => {
+    setState(s => ({
+      ...s,
+      savedHomeTiles: [
+        ...(s.savedHomeTiles || []).filter(t => t.name !== name),
+        { id: crypto.randomUUID(), name, exercises: exerciseNames },
+      ],
+    }))
+  }, [])
+
+  const deleteHomeTile = useCallback((id) => {
+    setState(s => ({ ...s, savedHomeTiles: (s.savedHomeTiles || []).filter(t => t.id !== id) }))
   }, [])
 
   // ── Templates ──────────────────────────────────────────────────────────────
@@ -186,6 +281,9 @@ export function useWorkoutStore() {
     startWorkout, addExerciseToWorkout, removeExerciseFromWorkout,
     addSet, updateSet, removeSet, toggleReadyToMoveUp, updateExerciseNotes,
     finishWorkout, discardWorkout, deleteWorkout,
+    softDeleteWorkout, restoreDeletedWorkout, permanentDeleteWorkout,
+    archiveWorkout, unarchiveWorkout,
+    saveHomeTile, deleteHomeTile,
     saveTemplate, deleteTemplate, startFromTemplate,
     addCustomExercise,
     getExerciseHistory, getPersonalRecord, getWorkoutDates,

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X } from 'lucide-react'
+import { playLunkAlarm } from '../utils/audio'
 
 const PRESETS = [60, 90, 120, 180]
 
@@ -12,16 +13,6 @@ function createTick(ctx) {
   gain.gain.setValueAtTime(0.08, ctx.currentTime)
   gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06)
   osc.start(); osc.stop(ctx.currentTime + 0.06)
-}
-
-function createDing(ctx) {
-  const osc = ctx.createOscillator()
-  const gain = ctx.createGain()
-  osc.connect(gain); gain.connect(ctx.destination)
-  osc.type = 'sine'; osc.frequency.value = 880
-  gain.gain.setValueAtTime(0.4, ctx.currentTime)
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5)
-  osc.start(); osc.stop(ctx.currentTime + 1.5)
 }
 
 // Generate clock tick marks
@@ -65,8 +56,8 @@ export default function RestTimer({ onClose, inline = false, compact = false }) 
           if (r <= 1) {
             clearInterval(intervalRef.current)
             setRunning(false)
-            try { createDing(getCtx()) } catch {}
-            setDing(true); setTimeout(() => setDing(false), 2000)
+            try { playLunkAlarm() } catch {}
+            setDing(true); setTimeout(() => setDing(false), 2500)
             if (navigator.vibrate) navigator.vibrate([300, 150, 300])
             return 0
           }
@@ -79,6 +70,15 @@ export default function RestTimer({ onClose, inline = false, compact = false }) 
     }
     return () => clearInterval(intervalRef.current)
   }, [running])
+
+  const toggleRunning = useCallback(() => {
+    if (audioCtx.current) audioCtx.current.resume()
+    setRunning(r => {
+      // Auto-reset to last duration if timer finished
+      if (!r && remaining === 0) setRemaining(duration)
+      return !r
+    })
+  }, [remaining, duration])
 
   const reset = () => { setRunning(false); setRemaining(duration); setDing(false) }
   const selectPreset = s => { setDuration(s); setRemaining(s); setRunning(false); setDing(false) }
@@ -125,7 +125,7 @@ export default function RestTimer({ onClose, inline = false, compact = false }) 
         <div className="flex flex-col gap-2 flex-1">
           <span className="text-xs font-bold tracking-widest uppercase" style={{ color: '#c8b97a', fontFamily: 'Courier New, monospace' }}>REST TIMER</span>
           <div className="flex items-center gap-3">
-            <button onClick={() => { if(audioCtx.current) audioCtx.current.resume(); setRunning(r=>!r) }}
+            <button onClick={toggleRunning}
               className="w-12 h-12 rounded-full flex items-center justify-center font-mono text-base font-bold active:scale-95 transition-all"
               style={{ background:running?'#1a1a1a':'#22c55e', color:running?'#22c55e':'#000', border:running?'2px solid #22c55e':'none', boxShadow:running?'0 0 16px #22c55e44':'0 4px 16px #22c55e55' }}>
               {running ? '⏸' : '▶'}
@@ -190,7 +190,7 @@ export default function RestTimer({ onClose, inline = false, compact = false }) 
             <circle
               cx={CX} cy={CY} r={R - 4}
               fill="none"
-              stroke={ding ? '#22c55e' : '#22c55e'}
+              stroke="#22c55e"
               strokeWidth="5"
               strokeLinecap="round"
               strokeDasharray={circ}
@@ -228,7 +228,7 @@ export default function RestTimer({ onClose, inline = false, compact = false }) 
             style={{ background: '#1a1a1a', color: '#c8b97a', border: '1px solid #333' }}
           >RST</button>
           <button
-            onClick={() => { if (audioCtx.current) audioCtx.current.resume(); setRunning(r => !r) }}
+            onClick={toggleRunning}
             className="w-20 h-20 rounded-full flex items-center justify-center font-mono text-lg font-bold transition-all active:scale-95"
             style={{ background: running ? '#1a1a1a' : '#22c55e', color: running ? '#22c55e' : '#000', border: running ? '2px solid #22c55e' : 'none', boxShadow: running ? '0 0 20px #22c55e44' : '0 4px 20px #22c55e66' }}
           >

@@ -1,11 +1,26 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Plus, Trash2, ChevronDown, ChevronUp, ArrowUpCircle, X, Pencil } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronUp, ArrowUpCircle, X, Pencil, Archive, RotateCcw, Edit3, Zap } from 'lucide-react'
 import { useWorkoutStore } from '../store/workoutStore'
 import { SPLIT_LABELS, EXERCISES } from '../data/exercises'
 import ExerciseSelector from './ExerciseSelector'
 import RestTimer from './RestTimer'
+import { playSetCompleteVoice, playWorkoutComplete } from '../utils/audio'
 
-// ── Rotating daily tagline (changes 3× a day) ─────────────────────────────
+// Epley 1RM estimate
+function estimate1RM(weight, reps) {
+  if (!weight || !reps || reps <= 0) return 0
+  return Math.round(Number(weight) * (1 + Number(reps) / 30))
+}
+
+// Weight suggestion based on reps and 1RM
+function suggestWeight(oneRM, reps) {
+  if (!oneRM || !reps) return null
+  const factors = { 1: 1.0, 2: 0.95, 3: 0.93, 4: 0.90, 5: 0.87, 6: 0.85, 7: 0.83, 8: 0.80, 9: 0.77, 10: 0.75, 11: 0.72, 12: 0.67, 13: 0.65, 14: 0.62, 15: 0.60 }
+  const factor = factors[Math.min(Number(reps), 15)] || 0.60
+  return Math.round(oneRM * factor / 2.5) * 2.5
+}
+
+// Rotating daily tagline
 function getDailyTagline() {
   const h   = new Date().getHours()
   const day = new Date().getDate()
@@ -16,33 +31,162 @@ function getDailyTagline() {
   return pool[day % pool.length]
 }
 
-// ── Set row ────────────────────────────────────────────────────────────────
-function SetRow({ set, index, onUpdate, onRemove }) {
+// ── Floating input chips ───────────────────────────────────────────────────
+function ChipBar({ chips, onChip }) {
   return (
-    <div className="flex items-center gap-2 py-1.5">
-      <span className="text-xs font-bold w-5 text-center" style={{ color: '#555' }}>{index + 1}</span>
-      <div className="flex-1 flex gap-2">
-        <div className="flex-1 relative">
-          <input type="number" placeholder="lbs" value={set.weight || ''} onChange={e => onUpdate('weight', e.target.value)}
-            className="w-full text-center rounded-lg py-2 text-sm font-semibold outline-none text-white" style={{ background: '#2a2a2a', fontSize: 16 }} />
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#444' }}>lbs</span>
+    <div className="flex gap-2 flex-wrap mt-1.5">
+      {chips.map(chip => (
+        <button
+          key={chip.label}
+          onMouseDown={e => { e.preventDefault(); onChip(chip.value) }}
+          className="px-3 py-1 rounded-full text-xs font-bold"
+          style={{ background: '#22c55e22', color: '#22c55e', border: '1px solid #22c55e44' }}
+        >
+          {chip.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ── Set row ────────────────────────────────────────────────────────────────
+function SetRow({ set, index, onUpdate, onRemove, lastSessionSet, exerciseHistory }) {
+  const [focusedField, setFocusedField] = useState(null)
+
+  const repChips = [
+    { label: '8', value: '8' },
+    { label: '12', value: '12' },
+    { label: '15', value: '15' },
+  ]
+
+  const currentWeight = Number(set.weight) || 0
+  const weightChips = [
+    { label: '+2.5', value: String(currentWeight + 2.5) },
+    { label: '+5',   value: String(currentWeight + 5) },
+    { label: '+10',  value: String(currentWeight + 10) },
+  ]
+
+  // 1RM-based weight suggestion when reps are set
+  const currentReps = Number(set.reps) || 0
+  let oneRMSuggestion = null
+  let historySuggestion = null
+
+  if (currentReps > 0 && exerciseHistory && exerciseHistory.length > 0) {
+    const last = exerciseHistory[exerciseHistory.length - 1]
+    if (last && last.sets && last.sets.length > 0) {
+      const lastSet = last.sets.reduce((best, s) => (Number(s.weight) > Number(best.weight) ? s : best), last.sets[0])
+      const lastWeight = Number(lastSet.weight)
+      const lastReps = Number(lastSet.reps)
+      if (lastWeight > 0) {
+        const oneRM = estimate1RM(lastWeight, lastReps)
+        const suggested = suggestWeight(oneRM, currentReps)
+        if (suggested && suggested !== currentWeight) {
+          oneRMSuggestion = { weight: suggested, label: `~${suggested} lbs (${currentReps} rep est.)` }
+          historySuggestion = { weight: lastWeight, reps: lastReps, label: `${lastWeight} lbs × ${lastReps} last time` }
+        }
+      }
+    }
+  }
+
+  return (
+    <div className="py-1.5">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-bold w-5 text-center" style={{ color: '#555' }}>{index + 1}</span>
+        <div className="flex-1 flex gap-2">
+          <div className="flex-1 relative">
+            <input
+              type="number"
+              inputMode="decimal"
+              placeholder="lbs"
+              value={set.weight || ''}
+              onChange={e => onUpdate('weight', e.target.value)}
+              onFocus={() => setFocusedField('weight')}
+              onBlur={() => setFocusedField(null)}
+              className="w-full text-center rounded-lg py-2 text-sm font-semibold outline-none text-white"
+              style={{ background: '#2a2a2a', fontSize: 16 }}
+            />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#444' }}>lbs</span>
+          </div>
+          <div className="flex-1 relative">
+            <input
+              type="number"
+              inputMode="numeric"
+              placeholder="reps"
+              value={set.reps || ''}
+              onChange={e => onUpdate('reps', e.target.value)}
+              onFocus={() => setFocusedField('reps')}
+              onBlur={() => setFocusedField(null)}
+              className="w-full text-center rounded-lg py-2 text-sm font-semibold outline-none text-white"
+              style={{ background: '#2a2a2a', fontSize: 16 }}
+            />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#444' }}>reps</span>
+          </div>
         </div>
-        <div className="flex-1 relative">
-          <input type="number" placeholder="reps" value={set.reps || ''} onChange={e => onUpdate('reps', e.target.value)}
-            className="w-full text-center rounded-lg py-2 text-sm font-semibold outline-none text-white" style={{ background: '#2a2a2a', fontSize: 16 }} />
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#444' }}>reps</span>
-        </div>
+        <button onClick={onRemove} className="p-1.5 rounded-lg" style={{ color: '#555' }}><Trash2 size={15} /></button>
       </div>
-      <button onClick={onRemove} className="p-1.5 rounded-lg" style={{ color: '#555' }}><Trash2 size={15} /></button>
+
+      {/* Chips: reps suggestions */}
+      {focusedField === 'reps' && (
+        <div className="ml-7 mt-1">
+          <ChipBar chips={repChips} onChip={v => onUpdate('reps', v)} />
+        </div>
+      )}
+
+      {/* Chips: weight increments */}
+      {focusedField === 'weight' && (
+        <div className="ml-7 mt-1">
+          <ChipBar chips={weightChips} onChip={v => onUpdate('weight', v)} />
+        </div>
+      )}
+
+      {/* Weight suggestions when reps are entered and weight is empty */}
+      {currentReps > 0 && !currentWeight && (historySuggestion || oneRMSuggestion) && (
+        <div className="ml-7 mt-1 flex flex-col gap-1">
+          {historySuggestion && (
+            <button
+              onMouseDown={e => { e.preventDefault(); onUpdate('weight', String(historySuggestion.weight)) }}
+              className="text-left px-3 py-1.5 rounded-lg text-xs font-semibold"
+              style={{ background: '#1e1e1e', color: '#888', border: '1px solid #2a2a2a' }}
+            >
+              📊 {historySuggestion.label}
+            </button>
+          )}
+          {oneRMSuggestion && (
+            <button
+              onMouseDown={e => { e.preventDefault(); onUpdate('weight', String(oneRMSuggestion.weight)) }}
+              className="text-left px-3 py-1.5 rounded-lg text-xs font-semibold"
+              style={{ background: '#1e1e1e', color: '#888', border: '1px solid #2a2a2a' }}
+            >
+              ⚡ {oneRMSuggestion.label}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
 // ── Exercise card ──────────────────────────────────────────────────────────
-function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMoveUp, onRemove, onUpdateNotes, pr }) {
+function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMoveUp, onRemove, onUpdateNotes, pr, exerciseHistory }) {
   const [expanded, setExpanded] = useState(true)
   const maxWeight = exercise.sets.length > 0 ? Math.max(...exercise.sets.map(s => Number(s.weight) || 0)) : 0
   const isPR = maxWeight > 0 && maxWeight > pr
+
+  const lastSession = exerciseHistory && exerciseHistory.length > 0 ? exerciseHistory[exerciseHistory.length - 1] : null
+  const lastWeight = lastSession?.maxWeight || 0
+  const lastReps = lastSession?.sets?.[0]?.reps || 0
+
+  const handleAddSet = () => {
+    const last = exercise.sets[exercise.sets.length - 1]
+    // If this set has weight+reps, it's a completed set — play voice
+    if (last && (last.weight || last.reps)) {
+      playSetCompleteVoice()
+    }
+    // Default to last set values, or last session values for first set
+    const defaultWeight = last?.weight || (exercise.sets.length === 0 ? String(lastWeight || '') : '')
+    const defaultReps   = last?.reps   || (exercise.sets.length === 0 ? String(lastReps   || '') : '')
+    onAddSet(exercise.name, { weight: defaultWeight, reps: defaultReps })
+  }
 
   return (
     <div className="rounded-2xl mb-3 overflow-hidden" style={{ background: '#141414' }}>
@@ -64,12 +208,22 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
           </button>
         </div>
       </div>
+
+      {/* Last session badge */}
+      {lastWeight > 0 && (
+        <div className="mx-4 mb-1 px-3 py-1 rounded-lg" style={{ background: '#1a1a1a' }}>
+          <span className="text-xs" style={{ color: '#555' }}>Last time: </span>
+          <span className="text-xs font-semibold" style={{ color: '#888' }}>{lastWeight} lbs × {lastReps}</span>
+        </div>
+      )}
+
       {exercise.readyToMoveUp && (
         <div className="mx-4 mb-2 px-3 py-1.5 rounded-lg flex items-center gap-2" style={{ background: '#00d4ff11', border: '1px solid #00d4ff33' }}>
           <ArrowUpCircle size={14} style={{ color: '#00d4ff' }} />
           <span className="text-xs font-semibold" style={{ color: '#00d4ff' }}>Ready to increase weight next session</span>
         </div>
       )}
+
       {expanded && (
         <div className="px-4 pb-3">
           {exercise.sets.length > 0 && (
@@ -81,13 +235,18 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
             </div>
           )}
           {exercise.sets.map((set, i) => (
-            <SetRow key={set.id} set={set} index={i}
+            <SetRow
+              key={set.id}
+              set={set}
+              index={i}
               onUpdate={(field, val) => onUpdateSet(exercise.name, set.id, field, val)}
-              onRemove={() => onRemoveSet(exercise.name, set.id)} />
+              onRemove={() => onRemoveSet(exercise.name, set.id)}
+              exerciseHistory={exerciseHistory}
+            />
           ))}
-          <button onClick={() => { const last = exercise.sets[exercise.sets.length - 1]; onAddSet(exercise.name, { weight: last?.weight || '', reps: last?.reps || '' }) }}
+          <button onClick={handleAddSet}
             className="w-full mt-2 py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-1"
-            style={{ background: '#1e1e1e', color: '#00d4ff' }}>
+            style={{ background: '#1e1e1e', color: '#22c55e' }}>
             <Plus size={15} /> Add Set
           </button>
           {/* Notes */}
@@ -105,8 +264,8 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
   )
 }
 
-// ── Long-press + swipe delete hook ────────────────────────────────────────
-function useDeleteGestures(onLongPress, onSwipeDelete) {
+// ── Long-press + swipe gesture hook ───────────────────────────────────────
+function useGestures(onLongPress) {
   const pressTimer = useRef(null)
   const startX     = useRef(null)
   const [swiped, setSwiped] = useState(false)
@@ -133,32 +292,56 @@ function useDeleteGestures(onLongPress, onSwipeDelete) {
   return { swiped, setSwiped, handlers: { onTouchStart, onTouchMove, onTouchEnd } }
 }
 
-// ── Recent workout card with delete gestures ──────────────────────────────
-function WorkoutCard({ workout, onDelete }) {
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const { swiped, setSwiped, handlers } = useDeleteGestures(
-    () => setConfirmDelete(true),
-    () => setConfirmDelete(true),
-  )
+// ── Workout card with 3-option menu ──────────────────────────────────────
+function WorkoutCard({ workout, onSoftDelete, onArchive, onStartAgain }) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const { swiped, setSwiped, handlers } = useGestures(() => setMenuOpen(true))
 
   const duration = workout.endTime
     ? Math.round((workout.endTime - workout.startTime) / 60000)
     : null
 
+  const daysUntilPurge = workout.deletedAt
+    ? Math.max(0, Math.ceil((workout.deletedAt + 3 * 24 * 60 * 60 * 1000 - Date.now()) / (24 * 60 * 60 * 1000)))
+    : null
+
   return (
     <>
       <div className="relative overflow-hidden rounded-2xl" {...handlers}>
-        {/* Swipe-reveal delete button */}
+        {/* Swipe-reveal action strip */}
         <div
-          className="absolute right-0 top-0 bottom-0 flex items-center px-5 rounded-r-2xl transition-all"
-          style={{ background: '#ef4444', transform: swiped ? 'translateX(0)' : 'translateX(100%)', transition: 'transform 0.2s' }}
+          className="absolute right-0 top-0 bottom-0 flex items-center gap-1 px-2 rounded-r-2xl"
+          style={{ background: '#1e1e1e', transform: swiped ? 'translateX(0)' : 'translateX(100%)', transition: 'transform 0.2s', width: 120 }}
         >
-          <button onClick={() => setConfirmDelete(true)}><Trash2 size={20} color="white" /></button>
+          <button
+            onClick={() => { setMenuOpen(true); setSwiped(false) }}
+            className="flex-1 flex flex-col items-center gap-0.5 py-3 rounded-xl"
+            style={{ background: '#2a2a2a' }}
+          >
+            <Edit3 size={15} color="#888" />
+            <span className="text-xs" style={{ color: '#888', fontSize: 9 }}>Edit</span>
+          </button>
+          <button
+            onClick={() => { onArchive(workout.id); setSwiped(false) }}
+            className="flex-1 flex flex-col items-center gap-0.5 py-3 rounded-xl"
+            style={{ background: '#2a2a2a' }}
+          >
+            <Archive size={15} color="#888" />
+            <span className="text-xs" style={{ color: '#888', fontSize: 9 }}>Archive</span>
+          </button>
+          <button
+            onClick={() => { onSoftDelete(workout.id); setSwiped(false) }}
+            className="flex-1 flex flex-col items-center gap-0.5 py-3 rounded-xl"
+            style={{ background: '#ef444422' }}
+          >
+            <Trash2 size={15} color="#ef4444" />
+            <span className="text-xs" style={{ color: '#ef4444', fontSize: 9 }}>Delete</span>
+          </button>
         </div>
 
         <div
           className="flex items-center justify-between px-4 py-3 rounded-2xl transition-transform"
-          style={{ background: '#141414', transform: swiped ? 'translateX(-72px)' : 'translateX(0)', transition: 'transform 0.2s' }}
+          style={{ background: '#141414', transform: swiped ? 'translateX(-120px)' : 'translateX(0)', transition: 'transform 0.2s' }}
         >
           <div>
             <div className="text-white font-semibold text-sm">
@@ -166,11 +349,12 @@ function WorkoutCard({ workout, onDelete }) {
             </div>
             <div className="text-xs mt-0.5" style={{ color: '#555' }}>
               {workout.date} · {workout.exercises.length} exercise{workout.exercises.length !== 1 ? 's' : ''}
+              {daysUntilPurge !== null && ` · Deleted · Restores in ${daysUntilPurge}d`}
             </div>
           </div>
           <div className="flex items-center gap-2">
             {duration !== null && (
-              <span className="text-xs px-3 py-1 rounded-full" style={{ background: '#00d4ff11', color: '#00d4ff' }}>{duration}m</span>
+              <span className="text-xs px-3 py-1 rounded-full" style={{ background: '#22c55e11', color: '#22c55e' }}>{duration}m</span>
             )}
             {swiped && (
               <button onClick={() => setSwiped(false)} style={{ color: '#555' }}><X size={14} /></button>
@@ -179,19 +363,59 @@ function WorkoutCard({ workout, onDelete }) {
         </div>
       </div>
 
-      {confirmDelete && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center px-6">
-          <div className="w-full max-w-sm rounded-3xl p-6 flex flex-col gap-4" style={{ background: '#141414' }}>
-            <h2 className="text-white font-bold text-lg">Delete workout?</h2>
-            <p className="text-sm" style={{ color: '#888' }}>
-              {workout.name || SPLIT_LABELS[workout.split] || workout.split} on {workout.date}. This cannot be undone.
-            </p>
-            <div className="flex gap-3">
-              <button onClick={() => { setConfirmDelete(false); setSwiped(false) }}
-                className="flex-1 py-3 rounded-2xl font-semibold text-sm" style={{ background: '#2a2a2a', color: '#888' }}>Cancel</button>
-              <button onClick={() => { onDelete(workout.id); setConfirmDelete(false) }}
-                className="flex-1 py-3 rounded-2xl font-semibold text-sm" style={{ background: '#ef4444', color: '#fff' }}>Delete</button>
+      {/* 3-option menu modal */}
+      {menuOpen && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center px-4 pb-8">
+          <div className="w-full max-w-sm rounded-3xl overflow-hidden flex flex-col" style={{ background: '#141414' }}>
+            <div className="px-5 pt-5 pb-3">
+              <div className="text-white font-bold">{workout.name || SPLIT_LABELS[workout.split] || workout.split}</div>
+              <div className="text-xs mt-0.5" style={{ color: '#555' }}>{workout.date} · {workout.exercises.length} exercises</div>
             </div>
+            <div style={{ borderTop: '1px solid #1e1e1e' }}>
+              <button
+                onClick={() => { onStartAgain(workout); setMenuOpen(false) }}
+                className="w-full flex items-center gap-3 px-5 py-4 text-left active:bg-white/5"
+                style={{ borderBottom: '1px solid #1e1e1e' }}
+              >
+                <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: '#22c55e22' }}>
+                  <Zap size={17} color="#22c55e" />
+                </div>
+                <div>
+                  <div className="text-white font-semibold text-sm">Start Again</div>
+                  <div className="text-xs" style={{ color: '#555' }}>Create new workout with these exercises</div>
+                </div>
+              </button>
+              <button
+                onClick={() => { onArchive(workout.id); setMenuOpen(false) }}
+                className="w-full flex items-center gap-3 px-5 py-4 text-left active:bg-white/5"
+                style={{ borderBottom: '1px solid #1e1e1e' }}
+              >
+                <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: '#88888822' }}>
+                  <Archive size={17} color="#888" />
+                </div>
+                <div>
+                  <div className="text-white font-semibold text-sm">Archive</div>
+                  <div className="text-xs" style={{ color: '#555' }}>Hide from home, accessible in settings</div>
+                </div>
+              </button>
+              <button
+                onClick={() => { onSoftDelete(workout.id); setMenuOpen(false) }}
+                className="w-full flex items-center gap-3 px-5 py-4 text-left active:bg-white/5"
+              >
+                <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: '#ef444422' }}>
+                  <Trash2 size={17} color="#ef4444" />
+                </div>
+                <div>
+                  <div className="font-semibold text-sm" style={{ color: '#ef4444' }}>Delete</div>
+                  <div className="text-xs" style={{ color: '#555' }}>Moves to Recently Deleted · auto-purges in 3 days</div>
+                </div>
+              </button>
+            </div>
+            <button
+              onClick={() => setMenuOpen(false)}
+              className="w-full py-4 font-semibold text-sm"
+              style={{ color: '#888', borderTop: '1px solid #1e1e1e' }}
+            >Cancel</button>
           </div>
         </div>
       )}
@@ -204,17 +428,48 @@ function CustomWorkoutModal({ onStart, onClose }) {
   const [workoutName, setWorkoutName] = useState('')
   const [exercises, setExercises]     = useState([])
   const [showSelector, setShowSelector] = useState(false)
+  const [buildMode, setBuildMode]     = useState(null) // 'build-first' | 'build-as-you-go'
+
+  if (!buildMode) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center px-6" style={{ background: 'rgba(0,0,0,0.9)' }}>
+        <div className="w-full max-w-sm rounded-3xl p-6 flex flex-col gap-4" style={{ background: '#141414' }}>
+          <button onClick={onClose} className="self-end" style={{ color: '#555' }}><X size={20} /></button>
+          <div className="text-center">
+            <div className="text-white font-bold text-xl mb-1">Custom Workout</div>
+            <div className="text-sm" style={{ color: '#555' }}>How do you want to build it?</div>
+          </div>
+          <button
+            onClick={() => setBuildMode('build-first')}
+            className="w-full py-4 rounded-2xl font-bold text-base flex flex-col items-center gap-1"
+            style={{ background: '#22c55e', color: '#000' }}
+          >
+            <span>Build First</span>
+            <span className="text-xs font-normal opacity-70">Add all exercises, then start</span>
+          </button>
+          <button
+            onClick={() => { onStart('', [], 'build-as-you-go'); onClose() }}
+            className="w-full py-4 rounded-2xl font-bold text-base flex flex-col items-center gap-1"
+            style={{ background: '#1e1e1e', color: '#fff', border: '1px solid #2a2a2a' }}
+          >
+            <span>Build As You Go</span>
+            <span className="text-xs font-normal" style={{ color: '#555' }}>Start immediately, add exercises mid-session</span>
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>
       <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#0a0a0a' }}>
         <div className="flex items-center gap-3 px-4 pt-14 pb-3" style={{ borderBottom: '1px solid #1e1e1e' }}>
-          <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={22} /></button>
+          <button onClick={() => setBuildMode(null)} className="text-gray-400 hover:text-white"><X size={22} /></button>
           <span className="text-white font-semibold text-lg flex-1">Custom Workout</span>
           <button
-            onClick={() => { if (workoutName.trim()) onStart(workoutName.trim(), exercises) }}
+            onClick={() => { if (workoutName.trim()) onStart(workoutName.trim(), exercises, 'build-first') }}
             className="px-4 py-2 rounded-xl text-sm font-bold"
-            style={{ background: workoutName.trim() ? '#00d4ff' : '#1e1e1e', color: workoutName.trim() ? '#000' : '#555' }}
+            style={{ background: workoutName.trim() ? '#22c55e' : '#1e1e1e', color: workoutName.trim() ? '#000' : '#555' }}
           >Start</button>
         </div>
 
@@ -243,7 +498,7 @@ function CustomWorkoutModal({ onStart, onClose }) {
             )}
             <button onClick={() => setShowSelector(true)}
               className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 font-semibold text-sm"
-              style={{ background: '#141414', color: '#00d4ff', border: '1px dashed #1e1e1e' }}>
+              style={{ background: '#141414', color: '#22c55e', border: '1px dashed #1e1e1e' }}>
               <Plus size={18} /> Add Exercise
             </button>
           </div>
@@ -261,13 +516,60 @@ function CustomWorkoutModal({ onStart, onClose }) {
   )
 }
 
+// ── Save-as-workout prompt ─────────────────────────────────────────────────
+function SaveWorkoutPrompt({ workout, onSave, onDismiss }) {
+  const [name, setName] = useState(workout.name || '')
+  const [saving, setSaving] = useState(false)
+
+  if (saving) {
+    return (
+      <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center px-6">
+        <div className="w-full max-w-sm rounded-3xl p-6 flex flex-col gap-4" style={{ background: '#141414' }}>
+          <h2 className="text-white font-bold text-lg">Name this workout</h2>
+          <input
+            autoFocus
+            type="text"
+            placeholder='e.g. "Push A", "Upper Body"'
+            value={name}
+            onChange={e => setName(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl text-white outline-none"
+            style={{ background: '#1e1e1e', fontSize: 16 }}
+          />
+          <div className="flex gap-3">
+            <button onClick={onDismiss} className="flex-1 py-3 rounded-2xl font-semibold text-sm" style={{ background: '#2a2a2a', color: '#888' }}>Skip</button>
+            <button
+              onClick={() => { if (name.trim()) onSave(name.trim()) }}
+              className="flex-1 py-3 rounded-2xl font-semibold text-sm"
+              style={{ background: name.trim() ? '#22c55e' : '#1e1e1e', color: name.trim() ? '#000' : '#555' }}
+            >Save Tile</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center px-6">
+      <div className="w-full max-w-sm rounded-3xl p-6 flex flex-col gap-4" style={{ background: '#141414' }}>
+        <h2 className="text-white font-bold text-lg">Save as new workout?</h2>
+        <p className="text-sm" style={{ color: '#888' }}>Add this to your home screen for quick access next time.</p>
+        <div className="flex gap-3">
+          <button onClick={onDismiss} className="flex-1 py-3 rounded-2xl font-semibold text-sm" style={{ background: '#2a2a2a', color: '#888' }}>No thanks</button>
+          <button onClick={() => setSaving(true)} className="flex-1 py-3 rounded-2xl font-semibold text-sm text-black" style={{ background: '#22c55e' }}>Save it</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main WorkoutLogger ─────────────────────────────────────────────────────
 export default function WorkoutLogger() {
   const store = useWorkoutStore()
   const [showSelector,      setShowSelector]      = useState(false)
-  const [showFinishConfirm, setShowFinishConfirm]  = useState(false)
-  const [showCustomModal,   setShowCustomModal]    = useState(false)
-  const [elapsed,           setElapsed]            = useState(0)
+  const [showFinishConfirm, setShowFinishConfirm] = useState(false)
+  const [showCustomModal,   setShowCustomModal]   = useState(false)
+  const [showSavePrompt,    setShowSavePrompt]    = useState(false)
+  const [elapsed,           setElapsed]           = useState(0)
 
   useEffect(() => {
     if (!store.activeWorkout) return
@@ -280,10 +582,38 @@ export default function WorkoutLogger() {
     return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
   }
 
-  const handleStartCustom = (name, exerciseNames) => {
-    store.startWorkout('custom', name)
-    exerciseNames.forEach(ex => store.addExerciseToWorkout(ex))
+  const handleStartCustom = (name, exerciseNames, mode) => {
+    store.startWorkout('custom', name || null)
+    if (exerciseNames && exerciseNames.length > 0) {
+      exerciseNames.forEach(ex => store.addExerciseToWorkout(ex))
+    }
     setShowCustomModal(false)
+  }
+
+  const handleStartHomeTile = (tile) => {
+    store.startWorkout('custom', tile.name)
+    tile.exercises.forEach(ex => store.addExerciseToWorkout(ex))
+  }
+
+  const handleStartAgain = (workout) => {
+    store.startWorkout(workout.split, workout.name)
+    workout.exercises.forEach(ex => store.addExerciseToWorkout(ex.name))
+  }
+
+  const handleFinish = () => {
+    playWorkoutComplete()
+    store.finishWorkout()
+    setShowFinishConfirm(false)
+    // If it was a custom/unnamed workout, prompt to save
+    const wasCustom = store.activeWorkout?.split === 'custom'
+    if (wasCustom) setShowSavePrompt(true)
+  }
+
+  const handleSaveHomeTile = (name) => {
+    if (store.workouts[0]) {
+      store.saveHomeTile(name, store.workouts[0].exercises.map(e => e.name))
+    }
+    setShowSavePrompt(false)
   }
 
   // ── Start screen ──────────────────────────────────────────────────────────
@@ -319,32 +649,83 @@ export default function WorkoutLogger() {
                 <div className="text-xs mt-1" style={{ color: '#555' }}>Tap to start</div>
               </button>
             ))}
+
+            {/* Custom tile */}
+            <button
+              onClick={() => setShowCustomModal(true)}
+              className="rounded-2xl p-5 text-left active:scale-95 transition-transform"
+              style={{ background: '#141414', border: '1px dashed #22c55e55' }}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Pencil size={14} color="#22c55e" />
+                <div className="font-bold text-base" style={{ color: '#22c55e' }}>Custom</div>
+              </div>
+              <div className="text-xs" style={{ color: '#555' }}>Build your own</div>
+            </button>
+
+            {/* Saved home tiles */}
+            {(store.savedHomeTiles || []).map(tile => (
+              <button key={tile.id} onClick={() => handleStartHomeTile(tile)}
+                className="rounded-2xl p-5 text-left active:scale-95 transition-transform"
+                style={{ background: '#141414', border: '1px solid #22c55e44' }}>
+                <div className="text-white font-bold text-base truncate">{tile.name}</div>
+                <div className="text-xs mt-1" style={{ color: '#555' }}>{tile.exercises.length} exercises</div>
+              </button>
+            ))}
           </div>
 
           {/* Recent workouts */}
           {store.workouts.length > 0 && (
             <div className="px-4 mt-6">
-              <h2 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#555' }}>Recent — long press or swipe left to delete</h2>
+              <h2 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#555' }}>Recent — swipe left or long press</h2>
               <div className="flex flex-col gap-2">
                 {store.workouts.slice(0, 5).map(w => (
-                  <WorkoutCard key={w.id} workout={w} onDelete={store.deleteWorkout} />
+                  <WorkoutCard
+                    key={w.id}
+                    workout={w}
+                    onSoftDelete={store.softDeleteWorkout}
+                    onArchive={store.archiveWorkout}
+                    onStartAgain={handleStartAgain}
+                  />
                 ))}
               </div>
             </div>
           )}
-        </div>
 
-        {/* Custom workout FAB */}
-        <button
-          onClick={() => setShowCustomModal(true)}
-          className="fixed bottom-24 right-5 w-14 h-14 rounded-full flex items-center justify-center shadow-lg z-20"
-          style={{ background: '#00d4ff', boxShadow: '0 4px 24px #00d4ff55' }}
-        >
-          <Pencil size={22} color="#000" />
-        </button>
+          {/* Recently Deleted */}
+          {(store.recentlyDeleted || []).length > 0 && (
+            <div className="px-4 mt-4">
+              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#ef4444' }}>Recently Deleted</div>
+              {(store.recentlyDeleted || []).map(w => {
+                const daysLeft = Math.max(0, Math.ceil((w.deletedAt + 3 * 24 * 60 * 60 * 1000 - Date.now()) / (24 * 60 * 60 * 1000)))
+                return (
+                  <div key={w.id} className="rounded-2xl px-4 py-3 mb-2 flex items-center justify-between" style={{ background: '#141414' }}>
+                    <div>
+                      <div className="text-white text-sm font-semibold">{w.name || SPLIT_LABELS[w.split] || w.split}</div>
+                      <div className="text-xs" style={{ color: '#ef4444' }}>Purges in {daysLeft}d</div>
+                    </div>
+                    <button onClick={() => store.restoreDeletedWorkout(w.id)}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold"
+                      style={{ background: '#22c55e22', color: '#22c55e' }}>
+                      <RotateCcw size={12} /> Restore
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
 
         {showCustomModal && (
           <CustomWorkoutModal onStart={handleStartCustom} onClose={() => setShowCustomModal(false)} />
+        )}
+
+        {showSavePrompt && (
+          <SaveWorkoutPrompt
+            workout={store.workouts[0] || {}}
+            onSave={handleSaveHomeTile}
+            onDismiss={() => setShowSavePrompt(false)}
+          />
         )}
       </>
     )
@@ -359,12 +740,12 @@ export default function WorkoutLogger() {
       <div className="flex flex-col min-h-screen pb-28 pt-14">
         <div className="px-4 pt-4 pb-3 flex items-center justify-between" style={{ borderBottom: '1px solid #141414' }}>
           <div>
-            <div className="text-white font-bold text-lg">{workoutTitle}</div>
-            <div className="text-sm font-mono" style={{ color: '#00d4ff' }}>{fmt(elapsed)}</div>
+            <div className="text-white font-bold text-lg">{workoutTitle || 'Custom Workout'}</div>
+            <div className="text-sm font-mono" style={{ color: '#22c55e' }}>{fmt(elapsed)}</div>
           </div>
-          <button onClick={() => setShowFinishConfirm(true)} className="px-4 py-2.5 rounded-xl font-semibold text-sm text-black" style={{ background: '#00d4ff' }}>
-              Finish
-            </button>
+          <button onClick={() => setShowFinishConfirm(true)} className="px-4 py-2.5 rounded-xl font-semibold text-sm text-black" style={{ background: '#22c55e' }}>
+            Finish
+          </button>
         </div>
 
         <div className="flex-1 px-4 pt-4">
@@ -375,18 +756,22 @@ export default function WorkoutLogger() {
             </div>
           )}
           {activeWorkout.exercises.map(ex => (
-            <ExerciseCard key={ex.name} exercise={ex}
+            <ExerciseCard
+              key={ex.name}
+              exercise={ex}
               pr={store.getPersonalRecord(ex.name)}
+              exerciseHistory={store.getExerciseHistory(ex.name)}
               onAddSet={store.addSet}
               onUpdateSet={store.updateSet}
               onRemoveSet={store.removeSet}
               onToggleMoveUp={store.toggleReadyToMoveUp}
               onUpdateNotes={store.updateExerciseNotes}
-              onRemove={store.removeExerciseFromWorkout} />
+              onRemove={store.removeExerciseFromWorkout}
+            />
           ))}
           <button onClick={() => setShowSelector(true)}
             className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 font-semibold text-sm"
-            style={{ background: '#141414', color: '#00d4ff', border: '1px dashed #1e1e1e' }}>
+            style={{ background: '#141414', color: '#22c55e', border: '1px dashed #1e1e1e' }}>
             <Plus size={18} /> Add Exercise
           </button>
 
@@ -406,11 +791,19 @@ export default function WorkoutLogger() {
             <p className="text-sm" style={{ color: '#888' }}>{activeWorkout.exercises.length} exercise{activeWorkout.exercises.length !== 1 ? 's' : ''} · {fmt(elapsed)}</p>
             <div className="flex gap-3">
               <button onClick={() => setShowFinishConfirm(false)} className="flex-1 py-3 rounded-2xl font-semibold text-sm" style={{ background: '#2a2a2a', color: '#888' }}>Cancel</button>
-              <button onClick={() => { store.finishWorkout(); setShowFinishConfirm(false) }} className="flex-1 py-3 rounded-2xl font-semibold text-sm text-black" style={{ background: '#00d4ff' }}>Save Workout</button>
+              <button onClick={handleFinish} className="flex-1 py-3 rounded-2xl font-semibold text-sm text-black" style={{ background: '#22c55e' }}>Save Workout</button>
             </div>
             <button onClick={() => { store.discardWorkout(); setShowFinishConfirm(false) }} className="text-sm text-center py-1" style={{ color: '#ef4444' }}>Discard workout</button>
           </div>
         </div>
+      )}
+
+      {showSavePrompt && (
+        <SaveWorkoutPrompt
+          workout={activeWorkout}
+          onSave={handleSaveHomeTile}
+          onDismiss={() => setShowSavePrompt(false)}
+        />
       )}
     </>
   )
