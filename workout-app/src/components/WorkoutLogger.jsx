@@ -275,7 +275,7 @@ export default function WorkoutLogger() {
           {/* Hero banner */}
           <div className="px-4 pt-6 pb-4 flex flex-col items-center">
             <h1 className="text-5xl font-black tracking-tight text-white" style={{ letterSpacing: '-0.02em' }}>
-              YEAH <span style={{ color: '#00d4ff' }}>BUDDY</span>
+              YEAH <span style={{ color: '#22c55e' }}>BUDDY</span>
             </h1>
             <p className="text-xs font-semibold mt-1 uppercase tracking-widest" style={{ color: '#444' }}>Lightweight baby!</p>
           </div>
