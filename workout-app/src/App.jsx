@@ -1,84 +1,216 @@
 import { useState } from 'react'
-import { Dumbbell, BookOpen, TrendingUp, User } from 'lucide-react'
+import { Dumbbell, BookOpen, TrendingUp, User, Users, RotateCcw, X, Trash2 } from 'lucide-react'
 import WorkoutLogger  from './components/WorkoutLogger'
 import LibraryView    from './components/LibraryView'
 import ProgressView   from './components/ProgressView'
+import SocialView     from './components/SocialView'
 import UserSetup      from './components/UserSetup'
 import { useWorkoutStore } from './store/workoutStore'
+import { SPLIT_LABELS } from './data/exercises'
 
 const TABS = [
   { id: 'workout',  label: 'Workout',   Icon: Dumbbell },
   { id: 'library',  label: 'Exercises', Icon: BookOpen },
   { id: 'progress', label: 'Progress',  Icon: TrendingUp },
+  { id: 'social',   label: 'Community', Icon: Users },
   { id: 'profile',  label: 'Profile',   Icon: User },
 ]
+
+// ── Recently Deleted modal (lives in Profile) ─────────────────────────────
+function RecentlyDeletedModal({ store, onClose }) {
+  const deleted = store.recentlyDeleted || []
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#0a0a0a' }}>
+      <div className="flex items-center gap-3 px-4 pt-14 pb-3" style={{ borderBottom: '1px solid #1e1e1e' }}>
+        <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={22} /></button>
+        <span className="text-white font-semibold text-lg flex-1">Recently Deleted</span>
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        {deleted.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-16" style={{ color: '#555' }}>
+            <Trash2 size={36} strokeWidth={1.5} />
+            <span className="text-sm">No recently deleted workouts</span>
+          </div>
+        ) : (
+          <>
+            <p className="text-xs mb-4" style={{ color: '#555' }}>Workouts are permanently removed after 3 days.</p>
+            {deleted.map(w => {
+              const daysLeft = Math.max(0, Math.ceil((w.deletedAt + 3 * 24 * 60 * 60 * 1000 - Date.now()) / (24 * 60 * 60 * 1000)))
+              return (
+                <div key={w.id} className="rounded-2xl px-4 py-3 mb-2 flex items-center justify-between" style={{ background: '#141414' }}>
+                  <div>
+                    <div className="text-white text-sm font-semibold">{w.name || SPLIT_LABELS[w.split] || w.split}</div>
+                    <div className="text-xs mt-0.5" style={{ color: '#ef4444' }}>
+                      {w.date} · purges in {daysLeft}d
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => store.restoreDeletedWorkout(w.id)}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold"
+                      style={{ background: '#22c55e22', color: '#22c55e' }}
+                    >
+                      <RotateCcw size={12} /> Restore
+                    </button>
+                    <button
+                      onClick={() => store.permanentDeleteWorkout(w.id)}
+                      className="px-3 py-1.5 rounded-full text-xs font-semibold"
+                      style={{ background: '#ef444422', color: '#ef4444' }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Profile tab ────────────────────────────────────────────────────────────
+function ProfileTab({ store, tab, setTab }) {
+  const [showDeleted, setShowDeleted] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
+  const deletedCount  = (store.recentlyDeleted || []).length
+  const archivedCount = (store.archivedWorkouts || []).length
+
+  return (
+    <div className="relative" style={{ minHeight: '100dvh', background: '#0a0a0a' }}>
+      <div style={{ paddingBottom: 72 }}>
+        <div className="flex flex-col min-h-screen pb-24 pt-14 px-4">
+          <h1 className="text-2xl font-bold text-white pt-4 pb-6">Profile</h1>
+
+          {/* Current user card */}
+          <div className="rounded-2xl p-5 mb-4 flex items-center gap-4" style={{ background: '#141414' }}>
+            <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-black"
+              style={{ background: '#22c55e22', color: '#22c55e', border: '2px solid #22c55e44' }}>
+              {store.currentUser?.[0]?.toUpperCase()}
+            </div>
+            <div>
+              <div className="text-white font-bold text-lg">{store.currentUser}</div>
+              <div className="text-xs mt-0.5" style={{ color: '#555' }}>
+                {store.workouts.length} workout{store.workouts.length !== 1 ? 's' : ''} logged
+              </div>
+            </div>
+          </div>
+
+          {/* Data management */}
+          <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#555' }}>Data</div>
+          <div className="rounded-2xl overflow-hidden mb-4" style={{ background: '#141414' }}>
+            <button
+              onClick={() => setShowDeleted(true)}
+              className="w-full flex items-center justify-between px-4 py-4 text-left active:bg-white/5"
+              style={{ borderBottom: '1px solid #1e1e1e' }}
+            >
+              <div className="flex items-center gap-3">
+                <Trash2 size={17} color="#888" />
+                <span className="text-white text-sm font-medium">Recently Deleted</span>
+              </div>
+              {deletedCount > 0 && (
+                <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: '#ef444422', color: '#ef4444' }}>
+                  {deletedCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setShowArchived(true)}
+              className="w-full flex items-center justify-between px-4 py-4 text-left active:bg-white/5"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-lg">📦</span>
+                <span className="text-white text-sm font-medium">Archived Workouts</span>
+              </div>
+              {archivedCount > 0 && (
+                <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: '#88888822', color: '#888' }}>
+                  {archivedCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Switch / add profiles */}
+          <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#555' }}>All Profiles</div>
+          <div className="rounded-2xl overflow-hidden mb-4" style={{ background: '#141414' }}>
+            {(store.users || []).map((u, i, arr) => (
+              <button
+                key={u}
+                onClick={() => store.switchUser(u)}
+                className="w-full flex items-center gap-3 px-4 py-4 text-left active:bg-white/5"
+                style={{ borderBottom: i < arr.length - 1 ? '1px solid #1e1e1e' : 'none' }}
+              >
+                <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm"
+                  style={{ background: u === store.currentUser ? '#22c55e22' : '#1e1e1e', color: u === store.currentUser ? '#22c55e' : '#888' }}>
+                  {u[0].toUpperCase()}
+                </div>
+                <span className="text-white font-medium flex-1">{u}</span>
+                {u === store.currentUser && (
+                  <span className="text-xs px-2 py-1 rounded-full" style={{ background: '#22c55e22', color: '#22c55e' }}>Active</span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => { localStorage.removeItem('gaintracker_current_user'); window.location.reload() }}
+            className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 font-semibold text-sm"
+            style={{ background: '#141414', color: '#22c55e', border: '1px dashed #1e1e1e' }}
+          >
+            + Add / Switch Profile
+          </button>
+        </div>
+      </div>
+
+      <BottomNav tab={tab} setTab={setTab} store={store} />
+
+      {showDeleted && <RecentlyDeletedModal store={store} onClose={() => setShowDeleted(false)} />}
+
+      {showArchived && (
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#0a0a0a' }}>
+          <div className="flex items-center gap-3 px-4 pt-14 pb-3" style={{ borderBottom: '1px solid #1e1e1e' }}>
+            <button onClick={() => setShowArchived(false)} className="text-gray-400 hover:text-white"><X size={22} /></button>
+            <span className="text-white font-semibold text-lg flex-1">Archived Workouts</span>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 py-4">
+            {(store.archivedWorkouts || []).length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-16" style={{ color: '#555' }}>
+                <span className="text-3xl">📦</span>
+                <span className="text-sm">No archived workouts</span>
+              </div>
+            ) : (
+              (store.archivedWorkouts || []).map(w => (
+                <div key={w.id} className="rounded-2xl px-4 py-3 mb-2 flex items-center justify-between" style={{ background: '#141414' }}>
+                  <div>
+                    <div className="text-white text-sm font-semibold">{w.name || SPLIT_LABELS[w.split] || w.split}</div>
+                    <div className="text-xs mt-0.5" style={{ color: '#555' }}>{w.date} · {w.exercises.length} exercises</div>
+                  </div>
+                  <button
+                    onClick={() => store.unarchiveWorkout(w.id)}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold"
+                    style={{ background: '#22c55e22', color: '#22c55e' }}
+                  >
+                    <RotateCcw size={12} /> Restore
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function App() {
   const [tab, setTab] = useState('workout')
   const store = useWorkoutStore()
 
-  // First launch — no user selected
-  if (!store.currentUser) {
-    return <UserSetup onDone={() => {}} />
-  }
+  if (!store.currentUser) return <UserSetup onDone={() => {}} />
 
-  // Profile tab — show user switcher inline
-  if (tab === 'profile') {
-    return (
-      <div className="relative" style={{ minHeight: '100dvh', background: '#0a0a0a' }}>
-        <div style={{ paddingBottom: 72 }}>
-          <div className="flex flex-col min-h-screen pb-24 pt-14 px-4">
-            <h1 className="text-2xl font-bold text-white pt-4 pb-6">Profile</h1>
-
-            {/* Current user card */}
-            <div className="rounded-2xl p-5 mb-4 flex items-center gap-4" style={{ background: '#141414' }}>
-              <div className="w-14 h-14 rounded-full overflow-hidden" style={{ border: '2px solid #00d4ff33' }}>
-                <img src="/ronnie.jpg" alt="" className="w-full h-full object-cover" style={{ filter: 'saturate(2.2)' }} />
-              </div>
-              <div>
-                <div className="text-white font-bold text-lg">{store.currentUser}</div>
-                <div className="text-xs mt-0.5" style={{ color: '#555' }}>
-                  {store.workouts.length} workout{store.workouts.length !== 1 ? 's' : ''} logged
-                </div>
-              </div>
-            </div>
-
-            {/* Switch / add profiles */}
-            <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#555' }}>All Profiles</div>
-            <div className="rounded-2xl overflow-hidden mb-4" style={{ background: '#141414' }}>
-              {(store.users || []).map((u, i, arr) => (
-                <button
-                  key={u}
-                  onClick={() => { store.switchUser(u) }}
-                  className="w-full flex items-center gap-3 px-4 py-4 text-left active:bg-white/5"
-                  style={{ borderBottom: i < arr.length - 1 ? '1px solid #1e1e1e' : 'none' }}
-                >
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm"
-                    style={{ background: u === store.currentUser ? '#00d4ff22' : '#1e1e1e', color: u === store.currentUser ? '#00d4ff' : '#888' }}>
-                    {u[0].toUpperCase()}
-                  </div>
-                  <span className="text-white font-medium flex-1">{u}</span>
-                  {u === store.currentUser && <span className="text-xs px-2 py-1 rounded-full" style={{ background: '#00d4ff22', color: '#00d4ff' }}>Active</span>}
-                </button>
-              ))}
-            </div>
-
-            <button
-              onClick={() => {
-                localStorage.removeItem('gaintracker_current_user')
-                window.location.reload()
-              }}
-              className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 font-semibold text-sm"
-              style={{ background: '#141414', color: '#00d4ff', border: '1px dashed #1e1e1e' }}
-            >
-              + Add / Switch Profile
-            </button>
-          </div>
-        </div>
-        <BottomNav tab={tab} setTab={setTab} store={store} />
-      </div>
-    )
-  }
+  if (tab === 'profile') return <ProfileTab store={store} tab={tab} setTab={setTab} />
 
   return (
     <div className="relative" style={{ minHeight: '100dvh', background: '#0a0a0a' }}>
@@ -86,12 +218,13 @@ export default function App() {
         {tab === 'workout'  && <WorkoutLogger />}
         {tab === 'library'  && <LibraryView />}
         {tab === 'progress' && <ProgressView />}
+        {tab === 'social'   && <SocialView />}
       </div>
 
       {store.activeWorkout && tab !== 'workout' && (
         <button onClick={() => setTab('workout')}
           className="fixed top-5 right-4 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold text-black shadow-lg"
-          style={{ background: '#00d4ff' }}>
+          style={{ background: '#22c55e' }}>
           <span className="w-2 h-2 rounded-full bg-black animate-pulse" />Live
         </button>
       )}
@@ -102,19 +235,22 @@ export default function App() {
 }
 
 function BottomNav({ tab, setTab, store }) {
+  const pendingSocial = (store.friendRequests?.received || []).length
   return (
     <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] flex"
       style={{ background: '#0f0f0f', borderTop: '1px solid #1e1e1e', paddingBottom: 'env(safe-area-inset-bottom)', zIndex: 30 }}>
       {TABS.map(({ id, label, Icon }) => {
         const active  = tab === id
         const showDot = id === 'workout' && store.activeWorkout
+        const badge   = id === 'social' && pendingSocial > 0
         return (
           <button key={id} onClick={() => setTab(id)}
             className="flex-1 flex flex-col items-center justify-center py-3 gap-1 relative transition-colors"
-            style={{ color: active ? '#00d4ff' : '#444' }}>
+            style={{ color: active ? '#22c55e' : '#444' }}>
             <div className="relative">
               <Icon size={22} strokeWidth={active ? 2.5 : 1.8} />
-              {showDot && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full animate-pulse" style={{ background: '#00d4ff' }} />}
+              {showDot && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full animate-pulse" style={{ background: '#22c55e' }} />}
+              {badge && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-xs font-bold flex items-center justify-center" style={{ background: '#ef4444', color: '#fff', fontSize: 8 }}>{pendingSocial}</span>}
             </div>
             <span className="text-xs font-semibold" style={{ fontSize: 10 }}>{label}</span>
           </button>

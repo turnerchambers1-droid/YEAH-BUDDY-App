@@ -1,10 +1,38 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Plus, Trash2, ChevronDown, ChevronUp, ArrowUpCircle, X, Pencil, Archive, RotateCcw, Edit3, Zap } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronUp, ArrowUpCircle, X, Pencil, Archive, Edit3, Zap } from 'lucide-react'
 import { useWorkoutStore } from '../store/workoutStore'
 import { SPLIT_LABELS, EXERCISES } from '../data/exercises'
 import ExerciseSelector from './ExerciseSelector'
 import RestTimer from './RestTimer'
 import { playSetCompleteVoice, playWorkoutComplete } from '../utils/audio'
+import { useWgerGif } from '../utils/wgerGif'
+
+// ── Small exercise row for workout card preview ───────────────────────────
+function ExercisePreviewRow({ exercise }) {
+  const gif = useWgerGif(exercise.name)
+  const topSet = exercise.sets.length > 0
+    ? exercise.sets.reduce((best, s) => (Number(s.weight) >= Number(best.weight) ? s : best), exercise.sets[0])
+    : null
+
+  return (
+    <div className="flex items-center gap-3 py-1.5">
+      <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: '#2a2a2a' }}>
+        {gif
+          ? <img src={gif} alt="" className="w-full h-full object-cover" loading="lazy" />
+          : <div className="w-4 h-4 rounded-sm" style={{ background: '#3a3a3a' }} />
+        }
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-white text-xs font-semibold truncate">{exercise.name}</div>
+        {topSet && (
+          <div className="text-xs" style={{ color: '#555' }}>
+            {exercise.sets.length} set{exercise.sets.length !== 1 ? 's' : ''}{topSet.weight ? ` · ${topSet.weight} lbs` : ''}{topSet.reps ? ` × ${topSet.reps}` : ''}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 // Epley 1RM estimate
 function estimate1RM(weight, reps) {
@@ -292,75 +320,85 @@ function useGestures(onLongPress) {
   return { swiped, setSwiped, handlers: { onTouchStart, onTouchMove, onTouchEnd } }
 }
 
-// ── Workout card with 3-option menu ──────────────────────────────────────
+// ── Workout card with 3-option menu + expandable exercises ───────────────
 function WorkoutCard({ workout, onSoftDelete, onArchive, onStartAgain }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const { swiped, setSwiped, handlers } = useGestures(() => setMenuOpen(true))
 
   const duration = workout.endTime
     ? Math.round((workout.endTime - workout.startTime) / 60000)
     : null
 
-  const daysUntilPurge = workout.deletedAt
-    ? Math.max(0, Math.ceil((workout.deletedAt + 3 * 24 * 60 * 60 * 1000 - Date.now()) / (24 * 60 * 60 * 1000)))
-    : null
-
   return (
     <>
-      <div className="relative overflow-hidden rounded-2xl" {...handlers}>
-        {/* Swipe-reveal action strip */}
-        <div
-          className="absolute right-0 top-0 bottom-0 flex items-center gap-1 px-2 rounded-r-2xl"
-          style={{ background: '#1e1e1e', transform: swiped ? 'translateX(0)' : 'translateX(100%)', transition: 'transform 0.2s', width: 120 }}
-        >
-          <button
-            onClick={() => { setMenuOpen(true); setSwiped(false) }}
-            className="flex-1 flex flex-col items-center gap-0.5 py-3 rounded-xl"
-            style={{ background: '#2a2a2a' }}
+      <div className="rounded-2xl overflow-hidden" style={{ background: '#141414' }}>
+        {/* Swipe wrapper */}
+        <div className="relative overflow-hidden" {...handlers}>
+          {/* Swipe-reveal action strip */}
+          <div
+            className="absolute right-0 top-0 bottom-0 flex items-center gap-1 px-2"
+            style={{ background: '#1e1e1e', transform: swiped ? 'translateX(0)' : 'translateX(100%)', transition: 'transform 0.2s', width: 120 }}
           >
-            <Edit3 size={15} color="#888" />
-            <span className="text-xs" style={{ color: '#888', fontSize: 9 }}>Edit</span>
-          </button>
+            <button
+              onClick={() => { setMenuOpen(true); setSwiped(false) }}
+              className="flex-1 flex flex-col items-center gap-0.5 py-3 rounded-xl"
+              style={{ background: '#2a2a2a' }}
+            >
+              <Edit3 size={15} color="#888" />
+              <span className="text-xs" style={{ color: '#888', fontSize: 9 }}>Edit</span>
+            </button>
+            <button
+              onClick={() => { onArchive(workout.id); setSwiped(false) }}
+              className="flex-1 flex flex-col items-center gap-0.5 py-3 rounded-xl"
+              style={{ background: '#2a2a2a' }}
+            >
+              <Archive size={15} color="#888" />
+              <span className="text-xs" style={{ color: '#888', fontSize: 9 }}>Archive</span>
+            </button>
+            <button
+              onClick={() => { onSoftDelete(workout.id); setSwiped(false) }}
+              className="flex-1 flex flex-col items-center gap-0.5 py-3 rounded-xl"
+              style={{ background: '#ef444422' }}
+            >
+              <Trash2 size={15} color="#ef4444" />
+              <span className="text-xs" style={{ color: '#ef4444', fontSize: 9 }}>Delete</span>
+            </button>
+          </div>
+
           <button
-            onClick={() => { onArchive(workout.id); setSwiped(false) }}
-            className="flex-1 flex flex-col items-center gap-0.5 py-3 rounded-xl"
-            style={{ background: '#2a2a2a' }}
+            className="w-full flex items-center justify-between px-4 py-3 text-left"
+            style={{ transform: swiped ? 'translateX(-120px)' : 'translateX(0)', transition: 'transform 0.2s' }}
+            onClick={() => { if (!swiped) setExpanded(e => !e) }}
           >
-            <Archive size={15} color="#888" />
-            <span className="text-xs" style={{ color: '#888', fontSize: 9 }}>Archive</span>
-          </button>
-          <button
-            onClick={() => { onSoftDelete(workout.id); setSwiped(false) }}
-            className="flex-1 flex flex-col items-center gap-0.5 py-3 rounded-xl"
-            style={{ background: '#ef444422' }}
-          >
-            <Trash2 size={15} color="#ef4444" />
-            <span className="text-xs" style={{ color: '#ef4444', fontSize: 9 }}>Delete</span>
+            <div>
+              <div className="text-white font-semibold text-sm">
+                {workout.name || SPLIT_LABELS[workout.split] || workout.split}
+              </div>
+              <div className="text-xs mt-0.5" style={{ color: '#555' }}>
+                {workout.date} · {workout.exercises.length} exercise{workout.exercises.length !== 1 ? 's' : ''}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {duration !== null && (
+                <span className="text-xs px-3 py-1 rounded-full" style={{ background: '#22c55e11', color: '#22c55e' }}>{duration}m</span>
+              )}
+              {swiped
+                ? <button onClick={e => { e.stopPropagation(); setSwiped(false) }} style={{ color: '#555' }}><X size={14} /></button>
+                : <span style={{ color: '#444' }}>{expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</span>
+              }
+            </div>
           </button>
         </div>
 
-        <div
-          className="flex items-center justify-between px-4 py-3 rounded-2xl transition-transform"
-          style={{ background: '#141414', transform: swiped ? 'translateX(-120px)' : 'translateX(0)', transition: 'transform 0.2s' }}
-        >
-          <div>
-            <div className="text-white font-semibold text-sm">
-              {workout.name || SPLIT_LABELS[workout.split] || workout.split}
-            </div>
-            <div className="text-xs mt-0.5" style={{ color: '#555' }}>
-              {workout.date} · {workout.exercises.length} exercise{workout.exercises.length !== 1 ? 's' : ''}
-              {daysUntilPurge !== null && ` · Deleted · Restores in ${daysUntilPurge}d`}
-            </div>
+        {/* Expanded exercise list */}
+        {expanded && workout.exercises.length > 0 && (
+          <div className="px-4 pb-3" style={{ borderTop: '1px solid #1e1e1e' }}>
+            {workout.exercises.map(ex => (
+              <ExercisePreviewRow key={ex.name} exercise={ex} />
+            ))}
           </div>
-          <div className="flex items-center gap-2">
-            {duration !== null && (
-              <span className="text-xs px-3 py-1 rounded-full" style={{ background: '#22c55e11', color: '#22c55e' }}>{duration}m</span>
-            )}
-            {swiped && (
-              <button onClick={() => setSwiped(false)} style={{ color: '#555' }}><X size={14} /></button>
-            )}
-          </div>
-        </div>
+        )}
       </div>
 
       {/* 3-option menu modal */}
@@ -692,28 +730,6 @@ export default function WorkoutLogger() {
             </div>
           )}
 
-          {/* Recently Deleted */}
-          {(store.recentlyDeleted || []).length > 0 && (
-            <div className="px-4 mt-4">
-              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#ef4444' }}>Recently Deleted</div>
-              {(store.recentlyDeleted || []).map(w => {
-                const daysLeft = Math.max(0, Math.ceil((w.deletedAt + 3 * 24 * 60 * 60 * 1000 - Date.now()) / (24 * 60 * 60 * 1000)))
-                return (
-                  <div key={w.id} className="rounded-2xl px-4 py-3 mb-2 flex items-center justify-between" style={{ background: '#141414' }}>
-                    <div>
-                      <div className="text-white text-sm font-semibold">{w.name || SPLIT_LABELS[w.split] || w.split}</div>
-                      <div className="text-xs" style={{ color: '#ef4444' }}>Purges in {daysLeft}d</div>
-                    </div>
-                    <button onClick={() => store.restoreDeletedWorkout(w.id)}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold"
-                      style={{ background: '#22c55e22', color: '#22c55e' }}>
-                      <RotateCcw size={12} /> Restore
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          )}
         </div>
 
         {showCustomModal && (

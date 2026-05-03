@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo } from 'react'
 import { Search, X, ChevronRight, Sparkles, Plus } from 'lucide-react'
 import { EXERCISES, MUSCLE_LABELS, SPLITS, SPLIT_LABELS } from '../data/exercises'
 import { useWorkoutStore } from '../store/workoutStore'
 import MuscleBodyMap from './MuscleBodyMap'
+import { useWgerGif } from '../utils/wgerGif'
 
 // Specific-muscle grouping order (spec item 6)
 const MUSCLE_GROUP_ORDER = [
@@ -177,37 +178,6 @@ function NewExerciseModal({ onClose, onAdd }) {
       </div>
     </div>
   )
-}
-
-// wger GIF cache + fetcher
-const gifCache = {}
-function useWgerGif(exerciseName) {
-  const [gif, setGif] = useState(exerciseName ? (gifCache[exerciseName] ?? null) : null)
-  const mounted = useRef(true)
-
-  useEffect(() => {
-    mounted.current = true
-    if (!exerciseName) { setGif(null); return }
-    if (gifCache[exerciseName] !== undefined) { setGif(gifCache[exerciseName]); return }
-    const query = encodeURIComponent(exerciseName.split(' ').slice(0, 3).join(' '))
-    fetch(`https://wger.de/api/v2/exercise/search/?term=${query}&language=english&format=json`)
-      .then(r => r.json())
-      .then(data => {
-        const suggestion = data?.suggestions?.[0]
-        if (!suggestion?.data?.id) { gifCache[exerciseName] = null; return null }
-        return fetch(`https://wger.de/api/v2/exerciseimage/?exercise_base=${suggestion.data.id}&format=json`)
-      })
-      .then(r => r?.json())
-      .then(data => {
-        const img = data?.results?.[0]?.image || null
-        gifCache[exerciseName] = img
-        if (mounted.current) setGif(img)
-      })
-      .catch(() => { gifCache[exerciseName] = null })
-    return () => { mounted.current = false }
-  }, [exerciseName])
-
-  return gif
 }
 
 function ExerciseDetail({ exercise, onClose, pr }) {

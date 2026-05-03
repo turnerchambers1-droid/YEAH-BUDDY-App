@@ -28,7 +28,7 @@ function purgeRecentlyDeleted(data) {
   }
 }
 
-function loadData(username) {
+export function loadData(username) {
   if (!username) return defaultState()
   try {
     const r = localStorage.getItem(dataKey(username))
@@ -51,6 +51,8 @@ function defaultState() {
     archivedWorkouts: [],
     recentlyDeleted: [],
     savedHomeTiles: [],
+    friends: [],
+    friendRequests: { sent: [], received: [] },
   }
 }
 
@@ -69,6 +71,8 @@ function setState(updater) {
     archivedWorkouts: globalState.archivedWorkouts,
     recentlyDeleted: globalState.recentlyDeleted,
     savedHomeTiles: globalState.savedHomeTiles,
+    friends: globalState.friends,
+    friendRequests: globalState.friendRequests,
   })
   listeners.forEach(fn => fn(globalState))
 }
@@ -162,12 +166,10 @@ export function useWorkoutStore() {
     setState(s => ({ ...s, activeWorkout: null }))
   }, [])
 
-  // Hard delete (legacy, kept for purge use)
   const deleteWorkout = useCallback((id) => {
     setState(s => ({ ...s, workouts: s.workouts.filter(w => w.id !== id) }))
   }, [])
 
-  // Soft delete — moves to Recently Deleted with 3-day expiry
   const softDeleteWorkout = useCallback((id) => {
     setState(s => {
       const workout = s.workouts.find(w => w.id === id)
@@ -197,7 +199,6 @@ export function useWorkoutStore() {
     setState(s => ({ ...s, recentlyDeleted: (s.recentlyDeleted || []).filter(w => w.id !== id) }))
   }, [])
 
-  // Archive — hides from home, accessible in settings
   const archiveWorkout = useCallback((id) => {
     setState(s => {
       const workout = s.workouts.find(w => w.id === id)
@@ -256,6 +257,91 @@ export function useWorkoutStore() {
     setState(s => ({ ...s, customExercises: [...s.customExercises, { ...exercise, custom: true }] }))
   }, [])
 
+  // ── Social ─────────────────────────────────────────────────────────────────
+  const sendFriendRequest = useCallback((targetUsername) => {
+    if (!state.currentUser || !targetUsername || targetUsername === state.currentUser) return
+    // Add to my sent list
+    setState(s => ({
+      ...s,
+      friendRequests: {
+        ...s.friendRequests,
+        sent: [...new Set([...(s.friendRequests?.sent || []), targetUsername])],
+      },
+    }))
+    // Write to target's received list
+    const targetData = loadData(targetUsername)
+    saveData(targetUsername, {
+      ...targetData,
+      friendRequests: {
+        ...(targetData.friendRequests || {}),
+        received: [...new Set([...(targetData.friendRequests?.received || []), state.currentUser])],
+      },
+    })
+  }, [state.currentUser])
+
+  const acceptFriendRequest = useCallback((fromUsername) => {
+    setState(s => ({
+      ...s,
+      friends: [...new Set([...(s.friends || []), fromUsername])],
+      friendRequests: {
+        ...s.friendRequests,
+        received: (s.friendRequests?.received || []).filter(u => u !== fromUsername),
+      },
+    }))
+    // Mutually add friendship + clear their sent request
+    const fromData = loadData(fromUsername)
+    saveData(fromUsername, {
+      ...fromData,
+      friends: [...new Set([...(fromData.friends || []), state.currentUser])],
+      friendRequests: {
+        ...(fromData.friendRequests || {}),
+        sent: (fromData.friendRequests?.sent || []).filter(u => u !== state.currentUser),
+      },
+    })
+  }, [state.currentUser])
+
+  const rejectFriendRequest = useCallback((fromUsername) => {
+    setState(s => ({
+      ...s,
+      friendRequests: {
+        ...s.friendRequests,
+        received: (s.friendRequests?.received || []).filter(u => u !== fromUsername),
+      },
+    }))
+    const fromData = loadData(fromUsername)
+    saveData(fromUsername, {
+      ...fromData,
+      friendRequests: {
+        ...(fromData.friendRequests || {}),
+        sent: (fromData.friendRequests?.sent || []).filter(u => u !== state.currentUser),
+      },
+    })
+  }, [state.currentUser])
+
+  const cancelFriendRequest = useCallback((targetUsername) => {
+    setState(s => ({
+      ...s,
+      friendRequests: {
+        ...s.friendRequests,
+        sent: (s.friendRequests?.sent || []).filter(u => u !== targetUsername),
+      },
+    }))
+    const targetData = loadData(targetUsername)
+    saveData(targetUsername, {
+      ...targetData,
+      friendRequests: {
+        ...(targetData.friendRequests || {}),
+        received: (targetData.friendRequests?.received || []).filter(u => u !== state.currentUser),
+      },
+    })
+  }, [state.currentUser])
+
+  const unfriend = useCallback((username) => {
+    setState(s => ({ ...s, friends: (s.friends || []).filter(u => u !== username) }))
+    const otherData = loadData(username)
+    saveData(username, { ...otherData, friends: (otherData.friends || []).filter(u => u !== state.currentUser) })
+  }, [state.currentUser])
+
   // ── History ────────────────────────────────────────────────────────────────
   const getExerciseHistory = useCallback((exerciseName) => {
     return state.workouts
@@ -286,6 +372,7 @@ export function useWorkoutStore() {
     saveHomeTile, deleteHomeTile,
     saveTemplate, deleteTemplate, startFromTemplate,
     addCustomExercise,
+    sendFriendRequest, acceptFriendRequest, rejectFriendRequest, cancelFriendRequest, unfriend,
     getExerciseHistory, getPersonalRecord, getWorkoutDates,
   }
 }

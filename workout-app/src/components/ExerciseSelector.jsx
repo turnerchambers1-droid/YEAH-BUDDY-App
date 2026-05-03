@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo } from 'react'
 import { X, Search, Plus, Sparkles } from 'lucide-react'
 import { EXERCISES, SPLITS, SPLIT_LABELS, MUSCLE_LABELS } from '../data/exercises'
 import { useWorkoutStore } from '../store/workoutStore'
+import { useWgerGif } from '../utils/wgerGif'
 
 // Simple fuzzy match score (lower = better)
 function fuzzyScore(a, b) {
@@ -17,38 +18,6 @@ function fuzzyScore(a, b) {
   let matches = 0
   for (let i = 0; i < Math.min(a.length, b.length); i++) if (a[i] === b[i]) matches++
   return 3 - matches / Math.max(a.length, b.length)
-}
-
-// wger GIF hook — fetches exercise image by name (pass null to skip)
-const gifCache = {}
-
-function useWgerGif(exerciseName) {
-  const [gif, setGif] = useState(exerciseName ? (gifCache[exerciseName] ?? null) : null)
-  const mounted = useRef(true)
-
-  useEffect(() => {
-    mounted.current = true
-    if (!exerciseName) { setGif(null); return }
-    if (gifCache[exerciseName] !== undefined) { setGif(gifCache[exerciseName]); return }
-    const query = encodeURIComponent(exerciseName.split(' ').slice(0, 3).join(' '))
-    fetch(`https://wger.de/api/v2/exercise/search/?term=${query}&language=english&format=json`)
-      .then(r => r.json())
-      .then(data => {
-        const suggestion = data?.suggestions?.[0]
-        if (!suggestion?.data?.id) { gifCache[exerciseName] = null; return null }
-        return fetch(`https://wger.de/api/v2/exerciseimage/?exercise_base=${suggestion.data.id}&format=json`)
-      })
-      .then(r => r?.json())
-      .then(data => {
-        const img = data?.results?.[0]?.image || null
-        gifCache[exerciseName] = img
-        if (mounted.current) setGif(img)
-      })
-      .catch(() => { gifCache[exerciseName] = null })
-    return () => { mounted.current = false }
-  }, [exerciseName])
-
-  return gif
 }
 
 // Create New Exercise inline form
