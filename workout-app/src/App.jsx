@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Dumbbell, BookOpen, TrendingUp, User, Users, RotateCcw, X, Trash2 } from 'lucide-react'
+import { Dumbbell, BookOpen, TrendingUp, User, Users, RotateCcw, X, Trash2, LogOut } from 'lucide-react'
 import WorkoutLogger  from './components/WorkoutLogger'
 import LibraryView    from './components/LibraryView'
 import ProgressView   from './components/ProgressView'
@@ -132,34 +132,13 @@ function ProfileTab({ store, tab, setTab }) {
             </button>
           </div>
 
-          {/* Switch / add profiles */}
-          <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#555' }}>All Profiles</div>
-          <div className="rounded-2xl overflow-hidden mb-4" style={{ background: '#141414' }}>
-            {(store.users || []).map((u, i, arr) => (
-              <button
-                key={u}
-                onClick={() => store.switchUser(u)}
-                className="w-full flex items-center gap-3 px-4 py-4 text-left active:bg-white/5"
-                style={{ borderBottom: i < arr.length - 1 ? '1px solid #1e1e1e' : 'none' }}
-              >
-                <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm"
-                  style={{ background: u === store.currentUser ? '#22c55e22' : '#1e1e1e', color: u === store.currentUser ? '#22c55e' : '#888' }}>
-                  {u[0].toUpperCase()}
-                </div>
-                <span className="text-white font-medium flex-1">{u}</span>
-                {u === store.currentUser && (
-                  <span className="text-xs px-2 py-1 rounded-full" style={{ background: '#22c55e22', color: '#22c55e' }}>Active</span>
-                )}
-              </button>
-            ))}
-          </div>
-
+          {/* Sign out */}
           <button
-            onClick={() => { localStorage.removeItem('gaintracker_current_user'); window.location.reload() }}
+            onClick={store.signOut}
             className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 font-semibold text-sm"
-            style={{ background: '#141414', color: '#22c55e', border: '1px dashed #1e1e1e' }}
+            style={{ background: '#141414', color: '#ef4444', border: '1px solid #1e1e1e' }}
           >
-            + Add / Switch Profile
+            <LogOut size={16} /> Sign Out
           </button>
         </div>
       </div>
@@ -208,7 +187,16 @@ export default function App() {
   const [tab, setTab] = useState('workout')
   const store = useWorkoutStore()
 
-  if (!store.currentUser) return <UserSetup onDone={() => {}} />
+  if (store.loading) return (
+    <div className="fixed inset-0 flex items-center justify-center" style={{ background: '#0a0a0a' }}>
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#22c55e', borderTopColor: 'transparent' }} />
+        <span className="text-sm font-semibold" style={{ color: '#555' }}>Loading…</span>
+      </div>
+    </div>
+  )
+
+  if (!store.currentUser) return <UserSetup />
 
   if (tab === 'profile') return <ProfileTab store={store} tab={tab} setTab={setTab} />
 

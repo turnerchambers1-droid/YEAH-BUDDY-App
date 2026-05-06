@@ -1,31 +1,50 @@
 import { useState } from 'react'
-import { useWorkoutStore, getStoredUsers } from '../store/workoutStore'
-import { UserCircle, Plus, ChevronRight, Trash2 } from 'lucide-react'
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth'
+import { auth } from '../firebase'
 
-export default function UserSetup({ onDone }) {
-  const store = useWorkoutStore()
-  const [creating, setCreating] = useState(false)
-  const [name, setName] = useState('')
-  const [deleteConfirm, setDeleteConfirm] = useState(null)
-  const users = store.users || []
+export default function UserSetup() {
+  const [mode, setMode]       = useState('login') // 'login' | 'signup'
+  const [name, setName]       = useState('')
+  const [email, setEmail]     = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError]     = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleCreate = () => {
-    const trimmed = name.trim()
-    if (!trimmed) return
-    store.createUser(trimmed)
-    onDone()
-  }
+  const handleSubmit = async () => {
+    setError('')
+    if (mode === 'signup' && !name.trim()) { setError('Enter your name'); return }
+    if (!email.trim()) { setError('Enter your email'); return }
+    if (password.length < 6) { setError('Password must be at least 6 characters'); return }
 
-  const handleSelect = (username) => {
-    store.switchUser(username)
-    onDone()
+    setLoading(true)
+    try {
+      if (mode === 'signup') {
+        const cred = await createUserWithEmailAndPassword(auth, email.trim(), password)
+        await updateProfile(cred.user, { displayName: name.trim() })
+      } else {
+        await signInWithEmailAndPassword(auth, email.trim(), password)
+      }
+    } catch (e) {
+      const msgs = {
+        'auth/email-already-in-use': 'An account with this email already exists',
+        'auth/invalid-email': 'Invalid email address',
+        'auth/wrong-password': 'Incorrect password',
+        'auth/invalid-credential': 'Incorrect email or password',
+        'auth/user-not-found': 'No account found with this email',
+        'auth/weak-password': 'Password must be at least 6 characters',
+        'auth/too-many-requests': 'Too many attempts — try again later',
+      }
+      setError(msgs[e.code] || 'Something went wrong. Try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center px-6" style={{ background: '#0a0a0a' }}>
-      <div className="w-full max-w-sm flex flex-col gap-6">
+      <div className="w-full max-w-sm flex flex-col gap-5">
 
-        {/* Logo / branding */}
+        {/* Branding */}
         <div className="flex flex-col items-center gap-3 mb-2">
           <div className="w-20 h-20 rounded-2xl overflow-hidden" style={{ border: '2px solid #1e1e1e' }}>
             <img src="/ronnie.jpg" alt="" className="w-full h-full object-cover" style={{ filter: 'saturate(2.5) contrast(1.1)' }} />
@@ -36,80 +55,67 @@ export default function UserSetup({ onDone }) {
           </div>
         </div>
 
-        {/* Existing users */}
-        {users.length > 0 && !creating && (
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#555' }}>Select Profile</p>
-            <div className="rounded-2xl overflow-hidden" style={{ background: '#141414' }}>
-              {users.map((u, i) => (
-                <div key={u} style={{ borderBottom: i < users.length - 1 ? '1px solid #1e1e1e' : 'none' }} className="flex items-center">
-                  <button
-                    onClick={() => handleSelect(u)}
-                    className="flex-1 flex items-center gap-3 px-4 py-4 text-left active:bg-white/5"
-                  >
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm" style={{ background: '#00d4ff22', color: '#00d4ff' }}>
-                      {u[0].toUpperCase()}
-                    </div>
-                    <span className="text-white font-semibold">{u}</span>
-                    <ChevronRight size={16} className="ml-auto text-gray-600" />
-                  </button>
-                  <button
-                    onClick={() => setDeleteConfirm(u)}
-                    className="px-4 py-4"
-                    style={{ color: '#444' }}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Mode toggle */}
+        <div className="flex rounded-xl overflow-hidden" style={{ background: '#141414' }}>
+          <button
+            onClick={() => { setMode('login'); setError('') }}
+            className="flex-1 py-2.5 text-sm font-bold transition-colors"
+            style={{ background: mode === 'login' ? '#22c55e' : 'transparent', color: mode === 'login' ? '#000' : '#555' }}
+          >Sign In</button>
+          <button
+            onClick={() => { setMode('signup'); setError('') }}
+            className="flex-1 py-2.5 text-sm font-bold transition-colors"
+            style={{ background: mode === 'signup' ? '#22c55e' : 'transparent', color: mode === 'signup' ? '#000' : '#555' }}
+          >Create Account</button>
+        </div>
 
-        {/* New user form */}
-        {creating ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#555' }}>New Profile</p>
+        {/* Fields */}
+        <div className="flex flex-col gap-3">
+          {mode === 'signup' && (
             <input
               autoFocus
               type="text"
-              placeholder="Enter your name..."
+              placeholder="Your name"
               value={name}
               onChange={e => setName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleCreate()}
               className="w-full px-4 py-4 rounded-2xl text-white text-base outline-none"
               style={{ background: '#141414' }}
             />
-            <div className="flex gap-3">
-              <button onClick={() => setCreating(false)} className="flex-1 py-3 rounded-2xl font-semibold text-sm" style={{ background: '#1e1e1e', color: '#888' }}>Cancel</button>
-              <button onClick={handleCreate} className="flex-1 py-3 rounded-2xl font-semibold text-sm text-black" style={{ background: name.trim() ? '#00d4ff' : '#1e1e1e', color: name.trim() ? '#000' : '#555' }}>Start</button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setCreating(true)}
-            className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm"
-            style={{ background: '#00d4ff', color: '#000' }}
-          >
-            <Plus size={18} />
-            {users.length === 0 ? 'Create Profile' : 'Add Profile'}
-          </button>
-        )}
-      </div>
-
-      {/* Delete confirm */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center px-6 z-60">
-          <div className="w-full max-w-sm rounded-3xl p-6 flex flex-col gap-4" style={{ background: '#141414' }}>
-            <h2 className="text-white font-bold text-lg">Delete "{deleteConfirm}"?</h2>
-            <p className="text-sm" style={{ color: '#888' }}>All workouts and data for this profile will be permanently deleted.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-3 rounded-2xl font-semibold text-sm" style={{ background: '#2a2a2a', color: '#888' }}>Cancel</button>
-              <button onClick={() => { store.deleteUserAccount(deleteConfirm); setDeleteConfirm(null) }} className="flex-1 py-3 rounded-2xl font-semibold text-sm" style={{ background: '#ef4444', color: '#fff' }}>Delete</button>
-            </div>
-          </div>
+          )}
+          <input
+            autoFocus={mode === 'login'}
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+            className="w-full px-4 py-4 rounded-2xl text-white text-base outline-none"
+            style={{ background: '#141414' }}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+            className="w-full px-4 py-4 rounded-2xl text-white text-base outline-none"
+            style={{ background: '#141414' }}
+          />
         </div>
-      )}
+
+        {error && (
+          <p className="text-sm text-center" style={{ color: '#ef4444' }}>{error}</p>
+        )}
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          className="w-full py-4 rounded-2xl font-bold text-base"
+          style={{ background: loading ? '#1e1e1e' : '#22c55e', color: loading ? '#555' : '#000' }}
+        >
+          {loading ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Create Account'}
+        </button>
+      </div>
     </div>
   )
 }
