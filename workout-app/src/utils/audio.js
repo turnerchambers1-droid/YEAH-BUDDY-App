@@ -1,31 +1,14 @@
-const RONNIE_LINES = [
-  "Yeah buddy!",
-  "Lightweight baby!",
-  "Ain't nothin' but a peanut!",
-  "Everybody wanna be a bodybuilder but don't nobody wanna lift no heavy-ass weights!",
-  "Light weight!",
-  "That's what I'm talkin' about!",
-  "Another one bites the dust!",
-  "Come on!",
-  "I'm doing this for the love of the sport!",
-  "This is basic stuff!",
-  "Do it!",
-  "You got it!",
-  "That's all you!",
-  "Unbelievable!",
-  "I love this stuff!",
-]
-
-const ARNOLD_LINES = [
-  "Get to the chopper!",
-  "I'll be back.",
-  "It's not a tumor!",
-  "The mind is the limit.",
-  "Milk is for babies. When you grow up you have to drink beer.",
-  "Strength does not come from winning. Your struggles develop your strengths.",
-  "You can have results or excuses, not both.",
-  "The worst thing I can be is the same as everybody else.",
-  "Just remember, you can't climb the ladder of success with your hands in your pockets.",
+const RONNIE_FINISH_LINES = [
+  "YEAH BUDDY! LIGHTWEIGHT BABY! That workout is DONE!",
+  "Ain't nothin' but a peanut! You CRUSHED it today!",
+  "Everybody wanna be a bodybuilder, but don't nobody wanna lift no heavy-ass weights — YOU DO! YEAH BUDDY!",
+  "Light weight baby! Another session in the books!",
+  "That's what I'm talkin' about! You put in the WORK today!",
+  "Unbelievable! You went BEAST MODE on that workout!",
+  "Another day, another workout DEMOLISHED! YEAH BUDDY!",
+  "You didn't come here to play — you came here to TRAIN! And you did it! LIGHTWEIGHT BABY!",
+  "You just separated yourself from the competition! YEAH BUDDY!",
+  "Eight-time Mr. Olympia approved! That workout was FIRE!",
 ]
 
 function speak(text, rate = 1, pitch = 1) {
@@ -37,18 +20,9 @@ function speak(text, rate = 1, pitch = 1) {
   window.speechSynthesis.speak(u)
 }
 
-export function playSetCompleteVoice() {
-  if (Math.random() < 0.5) {
-    const line = RONNIE_LINES[Math.floor(Math.random() * RONNIE_LINES.length)]
-    speak(line, 0.85, 0.85)
-  } else {
-    const line = ARNOLD_LINES[Math.floor(Math.random() * ARNOLD_LINES.length)]
-    speak(line, 1.0, 1.0)
-  }
-}
-
 export function playWorkoutComplete() {
-  speak('YEAH BUDDY, LIGHTWEIGHT BABY!', 0.85, 0.85)
+  const line = RONNIE_FINISH_LINES[Math.floor(Math.random() * RONNIE_FINISH_LINES.length)]
+  speak(line, 0.82, 0.75)
 }
 
 export function playLunkAlarm() {

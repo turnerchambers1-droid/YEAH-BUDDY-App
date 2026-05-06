@@ -121,7 +121,7 @@ function WorkoutExerciseRow({ exercise }) {
         {topSet && (
           <div className="text-xs" style={{ color: '#555' }}>
             {exercise.sets.length} set{exercise.sets.length !== 1 ? 's' : ''}
-            {topSet.weight ? ` · ${topSet.weight} lbs` : ''}
+            {topSet.weight === 'BW' ? ' · BW' : topSet.weight ? ` · ${topSet.weight} lbs` : ''}
             {topSet.reps ? ` × ${topSet.reps}` : ''}
           </div>
         )}
@@ -224,7 +224,7 @@ export default function ProgressView() {
         {/* Stats banner */}
         <div className="px-4 mb-4 grid grid-cols-2 gap-3">
           <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: '#141414' }}>
-            <Flame size={24} style={{ color: '#22c55e' }} />
+            <Flame size={24} style={{ color: '#f97316' }} />
             <div>
               <div className="text-2xl font-bold text-white">{streak}</div>
               <div className="text-xs" style={{ color: '#666' }}>day streak</div>

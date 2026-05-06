@@ -4,7 +4,7 @@ import { useWorkoutStore } from '../store/workoutStore'
 import { SPLIT_LABELS, EXERCISES } from '../data/exercises'
 import ExerciseSelector from './ExerciseSelector'
 import RestTimer from './RestTimer'
-import { playSetCompleteVoice, playWorkoutComplete } from '../utils/audio'
+import { playWorkoutComplete } from '../utils/audio'
 import { useWgerGif } from '../utils/wgerGif'
 
 // ── Small exercise row for workout card preview ───────────────────────────
@@ -26,7 +26,9 @@ function ExercisePreviewRow({ exercise }) {
         <div className="text-white text-xs font-semibold truncate">{exercise.name}</div>
         {topSet && (
           <div className="text-xs" style={{ color: '#555' }}>
-            {exercise.sets.length} set{exercise.sets.length !== 1 ? 's' : ''}{topSet.weight ? ` · ${topSet.weight} lbs` : ''}{topSet.reps ? ` × ${topSet.reps}` : ''}
+            {exercise.sets.length} set{exercise.sets.length !== 1 ? 's' : ''}
+            {topSet.weight === 'BW' ? ' · BW' : topSet.weight ? ` · ${topSet.weight} lbs` : ''}
+            {topSet.reps ? ` × ${topSet.reps}` : ''}
           </div>
         )}
       </div>
@@ -87,12 +89,16 @@ function SetRow({ set, index, onUpdate, onRemove, lastSessionSet, exerciseHistor
     { label: '15', value: '15' },
   ]
 
-  const currentWeight = Number(set.weight) || 0
-  const weightChips = [
-    { label: '+2.5', value: String(currentWeight + 2.5) },
-    { label: '+5',   value: String(currentWeight + 5) },
-    { label: '+10',  value: String(currentWeight + 10) },
-  ]
+  const isBW = set.weight === 'BW'
+  const currentWeight = isBW ? 0 : (Number(set.weight) || 0)
+  const weightChips = isBW
+    ? [{ label: 'Clear BW', value: '' }]
+    : [
+        { label: 'BW',   value: 'BW' },
+        { label: '+2.5', value: String(currentWeight + 2.5) },
+        { label: '+5',   value: String(currentWeight + 5) },
+        { label: '+10',  value: String(currentWeight + 10) },
+      ]
 
   // 1RM-based weight suggestion when reps are set
   const currentReps = Number(set.reps) || 0
@@ -123,7 +129,7 @@ function SetRow({ set, index, onUpdate, onRemove, lastSessionSet, exerciseHistor
         <div className="flex-1 flex gap-2">
           <div className="flex-1 relative">
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
               placeholder="lbs"
               value={set.weight || ''}
@@ -131,9 +137,9 @@ function SetRow({ set, index, onUpdate, onRemove, lastSessionSet, exerciseHistor
               onFocus={() => setFocusedField('weight')}
               onBlur={() => setFocusedField(null)}
               className="w-full text-center rounded-lg py-2 text-sm font-semibold outline-none text-white"
-              style={{ background: '#2a2a2a', fontSize: 16 }}
+              style={{ background: isBW ? '#22c55e22' : '#2a2a2a', fontSize: 16, color: isBW ? '#22c55e' : '#fff' }}
             />
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#444' }}>lbs</span>
+            {!isBW && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#444' }}>lbs</span>}
           </div>
           <div className="flex-1 relative">
             <input
@@ -206,11 +212,6 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
 
   const handleAddSet = () => {
     const last = exercise.sets[exercise.sets.length - 1]
-    // If this set has weight+reps, it's a completed set — play voice
-    if (last && (last.weight || last.reps)) {
-      playSetCompleteVoice()
-    }
-    // Default to last set values, or last session values for first set
     const defaultWeight = last?.weight || (exercise.sets.length === 0 ? String(lastWeight || '') : '')
     const defaultReps   = last?.reps   || (exercise.sets.length === 0 ? String(lastReps   || '') : '')
     onAddSet(exercise.name, { weight: defaultWeight, reps: defaultReps })
