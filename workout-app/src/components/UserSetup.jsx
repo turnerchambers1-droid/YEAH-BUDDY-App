@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth'
-import { auth } from '../firebase'
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { auth, db } from '../firebase'
 
 export default function UserSetup() {
   const [mode, setMode]       = useState('login') // 'login' | 'signup'
@@ -19,8 +20,18 @@ export default function UserSetup() {
     setLoading(true)
     try {
       if (mode === 'signup') {
+        const displayName = name.trim()
         const cred = await createUserWithEmailAndPassword(auth, email.trim(), password)
-        await updateProfile(cred.user, { displayName: name.trim() })
+        // Write Firestore docs before onAuthStateChanged handler runs so it
+        // finds the correct display name rather than the email prefix fallback
+        await Promise.all([
+          updateProfile(cred.user, { displayName }),
+          setDoc(doc(db, 'users', cred.user.uid), {
+            displayName, email: email.trim(), createdAt: serverTimestamp(),
+            activeWorkout: null, customExercises: [], savedHomeTiles: [], friends: [],
+          }),
+          setDoc(doc(db, 'userProfiles', cred.user.uid), { uid: cred.user.uid, displayName }),
+        ])
       } else {
         await signInWithEmailAndPassword(auth, email.trim(), password)
       }
