@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Search, X, TrendingUp, Calendar, Flame, ChevronRight, ChevronDown, ChevronUp, Dumbbell } from 'lucide-react'
+import { Search, X, TrendingUp, Calendar, Flame, ChevronRight, ChevronDown, ChevronUp, Dumbbell, Copy } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
@@ -130,11 +130,50 @@ function WorkoutExerciseRow({ exercise }) {
   )
 }
 
+// Workout summary generator (Whoop-style)
+function generateSummary(workout) {
+  const duration = workout.endTime ? Math.round((workout.endTime - workout.startTime) / 60000) : null
+  const totalSets = workout.exercises.reduce((acc, e) => acc + e.sets.length, 0)
+  const totalVolume = workout.exercises.reduce((acc, e) =>
+    acc + e.sets.reduce((s, set) => s + (Number(set.reps) || 0) * (Number(set.weight) || 0), 0), 0)
+
+  let text = `🏋️ ${workout.name || workout.split || 'Workout'} · ${workout.date}`
+  if (duration) text += ` · ${duration} min`
+  text += '\n\n'
+  workout.exercises.forEach(ex => {
+    text += `${ex.name}\n`
+    ex.sets.forEach((s, i) => {
+      const w = s.weight === 'BW' ? 'BW' : s.weight ? `${s.weight} lbs` : ''
+      const r = s.reps ? `${s.reps} reps` : ''
+      text += `  Set ${i + 1}: ${[w, r].filter(Boolean).join(' × ')}\n`
+    })
+  })
+  text += `\nTotal: ${workout.exercises.length} exercises · ${totalSets} sets`
+  if (totalVolume > 0) text += ` · ${totalVolume.toLocaleString()} lbs volume`
+  text += '\n\nLogged with YEAH BUDDY 💪'
+  return text
+}
+
 // Expandable workout session card
 function WorkoutSessionCard({ workout }) {
   const [expanded, setExpanded] = useState(false)
+  const [copied, setCopied] = useState(false)
   const duration = workout.endTime ? Math.round((workout.endTime - workout.startTime) / 60000) : null
   const totalSets = workout.exercises.reduce((acc, e) => acc + e.sets.length, 0)
+
+  const handleCopySummary = (e) => {
+    e.stopPropagation()
+    const text = generateSummary(workout)
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 2000)
+    }).catch(() => {
+      // fallback for Safari
+      const el = document.createElement('textarea'); el.value = text
+      document.body.appendChild(el); el.select(); document.execCommand('copy')
+      document.body.removeChild(el)
+      setCopied(true); setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   return (
     <div className="rounded-2xl overflow-hidden mb-3" style={{ background: '#141414' }}>
@@ -152,6 +191,15 @@ function WorkoutSessionCard({ workout }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onMouseDown={e => e.stopPropagation()}
+            onClick={handleCopySummary}
+            className="px-2.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-colors"
+            style={{ background: copied ? '#22c55e22' : '#1e1e1e', color: copied ? '#22c55e' : '#555', border: '1px solid #2a2a2a' }}
+          >
+            <Copy size={11} />
+            {copied ? 'Copied!' : 'Summary'}
+          </button>
           <span style={{ color: '#444' }}>
             {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </span>

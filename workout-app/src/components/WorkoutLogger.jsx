@@ -4,7 +4,6 @@ import { useWorkoutStore } from '../store/workoutStore'
 import { SPLIT_LABELS, EXERCISES } from '../data/exercises'
 import ExerciseSelector from './ExerciseSelector'
 import RestTimer from './RestTimer'
-import { playWorkoutComplete } from '../utils/audio'
 import { useWgerGif } from '../utils/wgerGif'
 
 // ── Small exercise row for workout card preview ───────────────────────────
@@ -84,7 +83,8 @@ function SetRow({ set, index, onUpdate, onRemove, lastSessionSet, exerciseHistor
   const [focusedField, setFocusedField] = useState(null)
 
   const repChips = [
-    { label: '8', value: '8' },
+    { label: '8',  value: '8' },
+    { label: '10', value: '10' },
     { label: '12', value: '12' },
     { label: '15', value: '15' },
   ]
@@ -322,7 +322,7 @@ function useGestures(onLongPress) {
 }
 
 // ── Workout card with 3-option menu + expandable exercises ───────────────
-function WorkoutCard({ workout, onSoftDelete, onArchive, onStartAgain }) {
+function WorkoutCard({ workout, onSoftDelete, onArchive, onStartAgain, onEdit }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const { swiped, setSwiped, handlers } = useGestures(() => setMenuOpen(true))
@@ -342,7 +342,7 @@ function WorkoutCard({ workout, onSoftDelete, onArchive, onStartAgain }) {
             style={{ background: '#1e1e1e', transform: swiped ? 'translateX(0)' : 'translateX(100%)', transition: 'transform 0.2s', width: 120 }}
           >
             <button
-              onClick={() => { setMenuOpen(true); setSwiped(false) }}
+              onClick={() => { onEdit(workout); setSwiped(false) }}
               className="flex-1 flex flex-col items-center gap-0.5 py-3 rounded-xl"
               style={{ background: '#2a2a2a' }}
             >
@@ -412,6 +412,19 @@ function WorkoutCard({ workout, onSoftDelete, onArchive, onStartAgain }) {
             </div>
             <div style={{ borderTop: '1px solid #1e1e1e' }}>
               <button
+                onClick={() => { onEdit(workout); setMenuOpen(false) }}
+                className="w-full flex items-center gap-3 px-5 py-4 text-left active:bg-white/5"
+                style={{ borderBottom: '1px solid #1e1e1e' }}
+              >
+                <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: '#3b82f622' }}>
+                  <Edit3 size={17} color="#3b82f6" />
+                </div>
+                <div>
+                  <div className="text-white font-semibold text-sm">Edit</div>
+                  <div className="text-xs" style={{ color: '#555' }}>Change sets, weights, exercises, or name</div>
+                </div>
+              </button>
+              <button
                 onClick={() => { onStartAgain(workout); setMenuOpen(false) }}
                 className="w-full flex items-center gap-3 px-5 py-4 text-left active:bg-white/5"
                 style={{ borderBottom: '1px solid #1e1e1e' }}
@@ -457,6 +470,137 @@ function WorkoutCard({ workout, onSoftDelete, onArchive, onStartAgain }) {
             >Cancel</button>
           </div>
         </div>
+      )}
+    </>
+  )
+}
+
+// ── Workout edit modal ─────────────────────────────────────────────────────
+function WorkoutEditModal({ workout, onSave, onClose }) {
+  const [name, setName]   = useState(workout.name || '')
+  const [date, setDate]   = useState(workout.date || '')
+  const [exercises, setExercises] = useState(
+    workout.exercises.map(ex => ({ ...ex, sets: ex.sets.map(s => ({ ...s })) }))
+  )
+  const [showSelector, setShowSelector] = useState(false)
+
+  const updateSet = (exName, setId, field, val) => {
+    setExercises(exs => exs.map(ex => ex.name === exName
+      ? { ...ex, sets: ex.sets.map(s => s.id === setId ? { ...s, [field]: val } : s) }
+      : ex
+    ))
+  }
+
+  const removeSet = (exName, setId) => {
+    setExercises(exs => exs.map(ex => ex.name === exName
+      ? { ...ex, sets: ex.sets.filter(s => s.id !== setId) }
+      : ex
+    ))
+  }
+
+  const addSet = (exName) => {
+    setExercises(exs => exs.map(ex => {
+      if (ex.name !== exName) return ex
+      const last = ex.sets[ex.sets.length - 1]
+      return { ...ex, sets: [...ex.sets, { id: crypto.randomUUID(), weight: last?.weight || '', reps: last?.reps || '' }] }
+    }))
+  }
+
+  const removeExercise = (exName) => setExercises(exs => exs.filter(ex => ex.name !== exName))
+
+  const addExercise = (exName) => {
+    if (exercises.find(e => e.name === exName)) return
+    setExercises(exs => [...exs, { name: exName, sets: [{ id: crypto.randomUUID(), weight: '', reps: '' }], notes: '' }])
+  }
+
+  const handleSave = () => {
+    onSave({ name: name.trim() || null, date, exercises })
+    onClose()
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#0a0a0a' }}>
+        <div className="flex items-center gap-3 px-4 pt-14 pb-3" style={{ borderBottom: '1px solid #1e1e1e' }}>
+          <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={22} /></button>
+          <span className="text-white font-semibold text-lg flex-1">Edit Workout</span>
+          <button onClick={handleSave} className="px-4 py-2 rounded-xl text-sm font-bold" style={{ background: '#22c55e', color: '#000' }}>Save</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+          {/* Name */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-widest mb-1.5 block" style={{ color: '#555' }}>Workout Name</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)}
+              placeholder="Push Day, Leg Blast…"
+              className="w-full px-4 py-3 rounded-xl text-white outline-none" style={{ background: '#141414', fontSize: 16 }} />
+          </div>
+
+          {/* Date */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-widest mb-1.5 block" style={{ color: '#555' }}>Date</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl text-white outline-none" style={{ background: '#141414', fontSize: 16, colorScheme: 'dark' }} />
+          </div>
+
+          {/* Exercises */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-widest mb-2 block" style={{ color: '#555' }}>Exercises</label>
+            {exercises.map(ex => (
+              <div key={ex.name} className="rounded-2xl mb-3 overflow-hidden" style={{ background: '#141414' }}>
+                <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid #1e1e1e' }}>
+                  <span className="text-white font-semibold text-sm">{ex.name}</span>
+                  <button onClick={() => removeExercise(ex.name)} style={{ color: '#ef4444' }}><X size={16} /></button>
+                </div>
+
+                <div className="px-4 pt-2 pb-3">
+                  {/* Column headers */}
+                  {ex.sets.length > 0 && (
+                    <div className="flex gap-2 mb-1">
+                      <div className="w-5" />
+                      <div className="flex-1 text-center text-xs font-semibold" style={{ color: '#555' }}>WEIGHT</div>
+                      <div className="flex-1 text-center text-xs font-semibold" style={{ color: '#555' }}>REPS</div>
+                      <div className="w-8" />
+                    </div>
+                  )}
+                  {ex.sets.map((s, i) => (
+                    <div key={s.id} className="flex items-center gap-2 py-1">
+                      <span className="text-xs font-bold w-5 text-center" style={{ color: '#555' }}>{i + 1}</span>
+                      <input type="text" inputMode="decimal" value={s.weight} placeholder="lbs"
+                        onChange={e => updateSet(ex.name, s.id, 'weight', e.target.value)}
+                        className="flex-1 text-center rounded-lg py-2 text-sm font-semibold outline-none text-white"
+                        style={{ background: '#2a2a2a', fontSize: 16 }} />
+                      <input type="number" inputMode="numeric" value={s.reps} placeholder="reps"
+                        onChange={e => updateSet(ex.name, s.id, 'reps', e.target.value)}
+                        className="flex-1 text-center rounded-lg py-2 text-sm font-semibold outline-none text-white"
+                        style={{ background: '#2a2a2a', fontSize: 16 }} />
+                      <button onClick={() => removeSet(ex.name, s.id)} className="p-1" style={{ color: '#555' }}><Trash2 size={14} /></button>
+                    </div>
+                  ))}
+                  <button onClick={() => addSet(ex.name)}
+                    className="w-full mt-2 py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-1"
+                    style={{ background: '#1e1e1e', color: '#22c55e' }}>
+                    <Plus size={14} /> Add Set
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <button onClick={() => setShowSelector(true)}
+              className="w-full py-3 rounded-2xl flex items-center justify-center gap-2 font-semibold text-sm"
+              style={{ background: '#141414', color: '#22c55e', border: '1px dashed #1e1e1e' }}>
+              <Plus size={16} /> Add Exercise
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {showSelector && (
+        <ExerciseSelector
+          currentExercises={exercises.map(e => e.name)}
+          onSelect={addExercise}
+          onClose={() => setShowSelector(false)}
+        />
       )}
     </>
   )
@@ -609,6 +753,7 @@ export default function WorkoutLogger() {
   const [showCustomModal,   setShowCustomModal]   = useState(false)
   const [showSavePrompt,    setShowSavePrompt]    = useState(false)
   const [elapsed,           setElapsed]           = useState(0)
+  const [editingWorkout,    setEditingWorkout]    = useState(null)
 
   useEffect(() => {
     if (!store.activeWorkout) return
@@ -640,12 +785,17 @@ export default function WorkoutLogger() {
   }
 
   const handleFinish = () => {
-    playWorkoutComplete()
     store.finishWorkout()
     setShowFinishConfirm(false)
     // If it was a custom/unnamed workout, prompt to save
     const wasCustom = store.activeWorkout?.split === 'custom'
     if (wasCustom) setShowSavePrompt(true)
+  }
+
+  const handleEditWorkout = (workout) => setEditingWorkout(workout)
+  const handleSaveEdit = (updates) => {
+    if (editingWorkout) store.updateWorkout(editingWorkout.id, updates)
+    setEditingWorkout(null)
   }
 
   const handleSaveHomeTile = (name) => {
@@ -725,6 +875,7 @@ export default function WorkoutLogger() {
                     onSoftDelete={store.softDeleteWorkout}
                     onArchive={store.archiveWorkout}
                     onStartAgain={handleStartAgain}
+                    onEdit={handleEditWorkout}
                   />
                 ))}
               </div>
@@ -742,6 +893,14 @@ export default function WorkoutLogger() {
             workout={store.workouts[0] || {}}
             onSave={handleSaveHomeTile}
             onDismiss={() => setShowSavePrompt(false)}
+          />
+        )}
+
+        {editingWorkout && (
+          <WorkoutEditModal
+            workout={editingWorkout}
+            onSave={handleSaveEdit}
+            onClose={() => setEditingWorkout(null)}
           />
         )}
       </>
@@ -794,7 +953,7 @@ export default function WorkoutLogger() {
 
           {/* Rest timer — compact, at bottom */}
           <div className="mt-4 mb-2">
-            <RestTimer inline compact />
+            <RestTimer inline voiceMode={store.voiceMode} />
           </div>
         </div>
       </div>
@@ -820,6 +979,14 @@ export default function WorkoutLogger() {
           workout={activeWorkout}
           onSave={handleSaveHomeTile}
           onDismiss={() => setShowSavePrompt(false)}
+        />
+      )}
+
+      {editingWorkout && (
+        <WorkoutEditModal
+          workout={editingWorkout}
+          onSave={handleSaveEdit}
+          onClose={() => setEditingWorkout(null)}
         />
       )}
     </>

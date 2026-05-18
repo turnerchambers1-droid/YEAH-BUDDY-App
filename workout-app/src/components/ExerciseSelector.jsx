@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { X, Search, Plus, Sparkles } from 'lucide-react'
-import { EXERCISES, SPLITS, SPLIT_LABELS, MUSCLE_LABELS } from '../data/exercises'
+import { EXERCISES, MUSCLE_LABELS } from '../data/exercises'
 import { useWorkoutStore } from '../store/workoutStore'
 import { useWgerGif } from '../utils/wgerGif'
 
@@ -147,17 +147,18 @@ function ExerciseRow({ ex, isAdded, onSelect, showGif, borderBottom }) {
 
 export default function ExerciseSelector({ onSelect, onClose, currentExercises = [] }) {
   const store = useWorkoutStore()
+  const MUSCLE_GROUPS = ['Chest','Back','Shoulder','Bicep','Tricep','Quad','Hamstring','Glute','Abs','Calf','Forearm','Rear Delt','Trap']
   const [search, setSearch] = useState('')
-  const [activeSplit, setActiveSplit] = useState(SPLITS[0])
+  const [activeGroup, setActiveGroup] = useState('Chest')
   const [showCreate, setShowCreate] = useState(false)
 
   const allExercises = useMemo(() => [...EXERCISES, ...(store.customExercises || [])], [store.customExercises])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
-    const pool = search ? allExercises : allExercises.filter(e => e.split === activeSplit)
+    const pool = search ? allExercises : allExercises.filter(e => e.muscleGroup === activeGroup)
     return pool.filter(e => !q || e.name.toLowerCase().includes(q))
-  }, [search, activeSplit, allExercises])
+  }, [search, activeGroup, allExercises])
 
   // Fuzzy suggestions when no results
   const fuzzySuggestions = useMemo(() => {
@@ -220,20 +221,20 @@ export default function ExerciseSelector({ onSelect, onClose, currentExercises =
         </div>
       </div>
 
-      {/* Split tabs (hidden during search) */}
+      {/* Muscle group tabs (hidden during search) */}
       {!search && (
         <div className="flex px-4 gap-2 pb-3 overflow-x-auto">
-          {SPLITS.map(s => (
+          {MUSCLE_GROUPS.map(g => (
             <button
-              key={s}
-              onClick={() => setActiveSplit(s)}
+              key={g}
+              onClick={() => setActiveGroup(g)}
               className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-colors"
               style={{
-                background: activeSplit === s ? '#22c55e' : '#1e1e1e',
-                color: activeSplit === s ? '#000' : '#888',
+                background: activeGroup === g ? '#22c55e' : '#1e1e1e',
+                color: activeGroup === g ? '#000' : '#888',
               }}
             >
-              {SPLIT_LABELS[s]}
+              {g}
             </button>
           ))}
         </div>
