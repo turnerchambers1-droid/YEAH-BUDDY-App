@@ -19,6 +19,7 @@ function defaultData() {
     savedHomeTiles: [],
     friends: [],
     friendRequests: { sent: [], received: [] },
+    voiceMode: 'positive',
   }
 }
 
@@ -84,6 +85,7 @@ async function initUserData(uid) {
       customExercises: data.customExercises || [],
       savedHomeTiles: data.savedHomeTiles || [],
       friends: data.friends || [],
+      voiceMode: data.voiceMode || 'positive',
       loading: false,
     }))
   })
@@ -300,6 +302,24 @@ export function useWorkoutStore() {
     })
   }, [uid])
 
+  const setVoiceMode = useCallback((mode) => {
+    setState(s => ({ ...s, voiceMode: mode }))
+    if (uid) updateDoc(doc(db, 'users', uid), { voiceMode: mode }).catch(() => {})
+  }, [uid])
+
+  const updateWorkout = useCallback((id, updates) => {
+    setState(s => ({ ...s, workouts: s.workouts.map(w => w.id === id ? { ...w, ...updates } : w) }))
+    if (uid) updateDoc(doc(db, 'users', uid, 'workouts', id), updates).catch(() => {})
+  }, [uid])
+
+  const importWorkout = useCallback((workout) => {
+    setState(s => {
+      if (s.workouts.find(w => w.id === workout.id)) return s
+      if (uid) setDoc(doc(db, 'users', uid, 'workouts', workout.id), workout).catch(() => {})
+      return { ...s, workouts: [workout, ...s.workouts].sort((a,b) => (b.startTime||0)-(a.startTime||0)) }
+    })
+  }, [uid])
+
   // ── Templates ──────────────────────────────────────────────────────────────
   const saveTemplate = useCallback((name, split, exerciseNames) => {
     const template = { id: crypto.randomUUID(), name, split, exercises: exerciseNames }
@@ -400,6 +420,7 @@ export function useWorkoutStore() {
     softDeleteWorkout, restoreDeletedWorkout, permanentDeleteWorkout,
     archiveWorkout, unarchiveWorkout,
     saveHomeTile, deleteHomeTile,
+    setVoiceMode, updateWorkout, importWorkout,
     saveTemplate, deleteTemplate, startFromTemplate,
     addCustomExercise,
     sendFriendRequest, cancelFriendRequest, acceptFriendRequest, rejectFriendRequest, unfriend,

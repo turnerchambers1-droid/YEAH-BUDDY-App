@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X } from 'lucide-react'
-import { playLunkAlarm } from '../utils/audio'
+import { playLunkAlarm, playRestComplete } from '../utils/audio'
 
 const PRESETS = [60, 90, 120, 180]
 
@@ -10,15 +10,20 @@ function requestNotifPermission() {
   Notification.requestPermission()
 }
 
-function fireRestNotification(duration) {
+async function fireRestNotification(duration) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return
   try {
     const mins = duration >= 60 ? `${Math.round(duration / 60)}m` : `${duration}s`
-    const n = new Notification('Rest over — back to work! 💪', {
-      body: `${mins} rest complete`,
-      tag: 'rest-timer',  // replaces any previous rest notification
-      silent: true,       // audio already plays in-app
-    })
+    const opts = {
+      body: `${mins} rest complete — time to lift!`,
+      tag: 'rest-timer',
+      requireInteraction: false,
+    }
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.ready
+      if (reg?.showNotification) { reg.showNotification('Rest over — back to work! 💪', opts); return }
+    }
+    const n = new Notification('Rest over — back to work! 💪', opts)
     setTimeout(() => n.close(), 6000)
   } catch {}
 }
@@ -56,7 +61,7 @@ function Ticks({ r, cx, cy }) {
 }
 
 // ── RestTimer ──────────────────────────────────────────────────────────────
-export default function RestTimer({ onClose, inline = false }) {
+export default function RestTimer({ onClose, inline = false, voiceMode = 'positive' }) {
   const [duration,  setDuration]  = useState(90)
   const [remaining, setRemaining] = useState(90)
   const [running,   setRunning]   = useState(false)
@@ -85,6 +90,7 @@ export default function RestTimer({ onClose, inline = false }) {
     setRunning(false)
     setRemaining(0)
     try { playLunkAlarm() } catch {}
+    try { playRestComplete(voiceMode === 'negative') } catch {}
     setDing(true)
     setTimeout(() => setDing(false), 2500)
     if (navigator.vibrate) navigator.vibrate([300, 150, 300])
