@@ -3,12 +3,12 @@ import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
 const firebaseConfig = {
-  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId:             import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: "AIzaSyBe4jotsFwwtmiqz80RSFAExXztXAUCoTk",
+  authDomain: "yeah-buddy-app.firebaseapp.com",
+  projectId: "yeah-buddy-app",
+  storageBucket: "yeah-buddy-app.firebasestorage.app",
+  messagingSenderId: "409912443715",
+  appId: "1:409912443715:web:ab503e9d289e60ae5ae5f6"
 }
 
 const app = initializeApp(firebaseConfig)
