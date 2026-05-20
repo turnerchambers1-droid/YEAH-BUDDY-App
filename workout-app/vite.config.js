@@ -4,15 +4,12 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  build: {
-    target: ['es2015', 'safari13', 'ios13'],
-  },
   plugins: [
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'prompt',
-      includeAssets: ['favicon.svg'],
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.svg', 'ronnie.jpg'],
       manifest: {
         name: 'YEAH BUDDY',
         short_name: 'YEAH BUDDY',
@@ -23,13 +20,12 @@ export default defineConfig({
         orientation: 'portrait',
         start_url: '/',
         icons: [
-          { src: '/ronnie.jpg',  sizes: '512x512', type: 'image/jpeg', purpose: 'any maskable' },
+          { src: '/ronnie.jpg',  sizes: '512x512', type: 'image/jpeg' },
           { src: '/favicon.svg', sizes: 'any',     type: 'image/svg+xml' },
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp}'],
-        clientsClaim: true,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg}'],
       },
     }),
   ],
