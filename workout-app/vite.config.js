@@ -4,6 +4,9 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  build: {
+    target: ['es2015', 'safari13', 'ios13'],
+  },
   plugins: [
     react(),
     tailwindcss(),
