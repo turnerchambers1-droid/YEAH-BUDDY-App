@@ -754,6 +754,7 @@ export default function WorkoutLogger() {
   const [showSavePrompt,    setShowSavePrompt]    = useState(false)
   const [elapsed,           setElapsed]           = useState(0)
   const [editingWorkout,    setEditingWorkout]    = useState(null)
+  const timerRef = useRef(null)
 
   useEffect(() => {
     if (!store.activeWorkout) return
@@ -937,7 +938,7 @@ export default function WorkoutLogger() {
               exercise={ex}
               pr={store.getPersonalRecord(ex.name)}
               exerciseHistory={store.getExerciseHistory(ex.name)}
-              onAddSet={store.addSet}
+              onAddSet={(name, set) => { store.addSet(name, set); timerRef.current?.start() }}
               onUpdateSet={store.updateSet}
               onRemoveSet={store.removeSet}
               onToggleMoveUp={store.toggleReadyToMoveUp}
@@ -953,7 +954,20 @@ export default function WorkoutLogger() {
 
           {/* Rest timer — compact, at bottom */}
           <div className="mt-4 mb-2">
-            <RestTimer inline voiceMode={store.voiceMode} />
+            <RestTimer ref={timerRef} inline voiceMode={store.voiceMode} />
+          </div>
+
+          {/* Workout notes */}
+          <div className="mb-4 rounded-2xl px-4 py-3" style={{ background: '#0d0d0d', border: '1px solid #2a2a2a' }}>
+            <span className="text-xs font-bold tracking-widest uppercase block mb-2" style={{ color: '#c8b97a', fontFamily: 'Courier New, monospace' }}>WORKOUT NOTES</span>
+            <textarea
+              rows={3}
+              placeholder="Add notes for this workout..."
+              value={store.activeWorkout.notes || ''}
+              onChange={e => store.updateWorkoutNotes(e.target.value)}
+              className="w-full bg-transparent resize-none text-sm outline-none"
+              style={{ color: '#ccc', caretColor: '#22c55e' }}
+            />
           </div>
         </div>
       </div>

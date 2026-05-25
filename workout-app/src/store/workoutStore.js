@@ -202,6 +202,15 @@ export function useWorkoutStore() {
     })
   }, [uid])
 
+  const updateWorkoutNotes = useCallback((notes) => {
+    setState(s => {
+      if (!s.activeWorkout) return s
+      const updated = { ...s.activeWorkout, notes }
+      if (uid) updateUserDoc(uid, { activeWorkout: updated })
+      return { ...s, activeWorkout: updated }
+    })
+  }, [uid])
+
   const toggleReadyToMoveUp = useCallback((exerciseName) => {
     setState(s => {
       if (!s.activeWorkout) return s
@@ -415,7 +424,7 @@ export function useWorkoutStore() {
     ...state,
     signOut,
     startWorkout, addExerciseToWorkout, removeExerciseFromWorkout,
-    addSet, updateSet, removeSet, toggleReadyToMoveUp, updateExerciseNotes,
+    addSet, updateSet, removeSet, toggleReadyToMoveUp, updateExerciseNotes, updateWorkoutNotes,
     finishWorkout, discardWorkout,
     softDeleteWorkout, restoreDeletedWorkout, permanentDeleteWorkout,
     archiveWorkout, unarchiveWorkout,

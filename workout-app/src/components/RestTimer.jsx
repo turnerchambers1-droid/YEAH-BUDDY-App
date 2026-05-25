@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { X } from 'lucide-react'
 import { playLunkAlarm, playRestComplete } from '../utils/audio'
 
@@ -28,17 +28,6 @@ async function fireRestNotification(duration) {
   } catch {}
 }
 
-// ── Web Audio tick ─────────────────────────────────────────────────────────
-function createTick(ctx) {
-  const osc = ctx.createOscillator()
-  const gain = ctx.createGain()
-  osc.connect(gain); gain.connect(ctx.destination)
-  osc.frequency.value = 1200
-  gain.gain.setValueAtTime(0.08, ctx.currentTime)
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06)
-  osc.start(); osc.stop(ctx.currentTime + 0.06)
-}
-
 // ── SVG tick marks ─────────────────────────────────────────────────────────
 function Ticks({ r, cx, cy }) {
   const marks = []
@@ -61,13 +50,12 @@ function Ticks({ r, cx, cy }) {
 }
 
 // ── RestTimer ──────────────────────────────────────────────────────────────
-export default function RestTimer({ onClose, inline = false, voiceMode = 'positive' }) {
+const RestTimer = forwardRef(function RestTimer({ onClose, inline = false, voiceMode = 'positive' }, ref) {
   const [duration,  setDuration]  = useState(90)
   const [remaining, setRemaining] = useState(90)
   const [running,   setRunning]   = useState(false)
   const [ding,      setDing]      = useState(false)
 
-  const audioCtx    = useRef(null)
   const intervalRef = useRef(null)
   // Absolute end timestamp — survives background throttling
   const endTimeRef  = useRef(null)
@@ -77,12 +65,6 @@ export default function RestTimer({ onClose, inline = false, voiceMode = 'positi
 
   useEffect(() => { durationRef.current  = duration  }, [duration])
   useEffect(() => { remainingRef.current = remaining }, [remaining])
-
-  const getCtx = () => {
-    if (!audioCtx.current)
-      audioCtx.current = new (window.AudioContext || window.webkitAudioContext)()
-    return audioCtx.current
-  }
 
   const handleTimerEnd = useCallback(() => {
     clearInterval(intervalRef.current)
@@ -106,10 +88,8 @@ export default function RestTimer({ onClose, inline = false, voiceMode = 'positi
     intervalRef.current = setInterval(() => {
       const rem = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000))
       if (rem <= 0) { handleTimerEnd(); return }
-      // Only trigger a tick when the displayed second actually changes
       if (rem !== lastDisplayed) {
         lastDisplayed = rem
-        try { createTick(getCtx()) } catch {}
         setRemaining(rem)
       }
     }, 250)
@@ -129,8 +109,19 @@ export default function RestTimer({ onClose, inline = false, voiceMode = 'positi
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [handleTimerEnd])
 
+  const autoStart = useCallback(() => {
+    clearInterval(intervalRef.current)
+    const dur = durationRef.current
+    setRemaining(dur)
+    setDing(false)
+    endTimeRef.current = Date.now() + dur * 1000
+    setRunning(true)
+    requestNotifPermission()
+  }, [])
+
+  useImperativeHandle(ref, () => ({ start: autoStart }), [autoStart])
+
   const toggleRunning = useCallback(() => {
-    if (audioCtx.current) audioCtx.current.resume()
     requestNotifPermission()
     setRunning(prev => {
       if (prev) {
@@ -283,4 +274,6 @@ export default function RestTimer({ onClose, inline = false, voiceMode = 'positi
       </div>
     </div>
   )
-}
+})
+
+export default RestTimer
