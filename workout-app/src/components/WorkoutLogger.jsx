@@ -203,6 +203,7 @@ function SetRow({ set, index, onUpdate, onRemove, lastSessionSet, exerciseHistor
 // ── Exercise card ──────────────────────────────────────────────────────────
 function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMoveUp, onRemove, onUpdateNotes, pr, exerciseHistory }) {
   const [expanded, setExpanded] = useState(true)
+  const [showLastSession, setShowLastSession] = useState(false)
   const maxWeight = exercise.sets.length > 0 ? Math.max(...exercise.sets.map(s => Number(s.weight) || 0)) : 0
   const isPR = maxWeight > 0 && maxWeight > pr
 
@@ -240,9 +241,42 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
 
       {/* Last session badge */}
       {lastWeight > 0 && (
-        <div className="mx-4 mb-1 px-3 py-1 rounded-lg" style={{ background: '#1a1a1a' }}>
+        <button onClick={() => setShowLastSession(true)} className="mx-4 mb-1 px-3 py-1 rounded-lg flex items-center gap-1.5 text-left" style={{ background: '#1a1a1a' }}>
           <span className="text-xs" style={{ color: '#555' }}>Last time: </span>
-          <span className="text-xs font-semibold" style={{ color: '#888' }}>{lastWeight} lbs × {lastReps}</span>
+          <span className="text-xs font-semibold underline decoration-dotted" style={{ color: '#22c55e' }}>{lastWeight} lbs × {lastReps}</span>
+          <span className="text-xs" style={{ color: '#444' }}>— tap to see all</span>
+        </button>
+      )}
+
+      {/* Last session overlay */}
+      {showLastSession && lastSession && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+          onClick={() => setShowLastSession(false)}>
+          <div className="w-full max-w-sm rounded-3xl p-5 flex flex-col gap-3"
+            style={{ background: 'rgba(18,18,18,0.95)', border: '1px solid #2a2a2a' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-white font-bold text-base">{exercise.name}</div>
+                <div className="text-xs mt-0.5" style={{ color: '#555' }}>{lastSession.date}</div>
+              </div>
+              <button onClick={() => setShowLastSession(false)} className="p-1.5 rounded-full" style={{ background: '#2a2a2a', color: '#888' }}>
+                <X size={16} />
+              </button>
+            </div>
+            <div className="flex gap-2 pb-1" style={{ borderBottom: '1px solid #2a2a2a' }}>
+              <div className="w-8 text-xs font-bold" style={{ color: '#555' }}>SET</div>
+              <div className="flex-1 text-xs font-bold text-center" style={{ color: '#555' }}>WEIGHT</div>
+              <div className="flex-1 text-xs font-bold text-center" style={{ color: '#555' }}>REPS</div>
+            </div>
+            {lastSession.sets.map((s, i) => (
+              <div key={s.id || i} className="flex gap-2 items-center">
+                <div className="w-8 text-xs font-mono" style={{ color: '#555' }}>{i + 1}</div>
+                <div className="flex-1 text-center text-sm font-semibold" style={{ color: '#f5f5f5' }}>{s.weight || '—'} lbs</div>
+                <div className="flex-1 text-center text-sm font-semibold" style={{ color: '#f5f5f5' }}>{s.reps || '—'}</div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
