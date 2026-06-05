@@ -51,8 +51,8 @@ function Ticks({ r, cx, cy }) {
 
 // ── RestTimer ──────────────────────────────────────────────────────────────
 const RestTimer = forwardRef(function RestTimer({ onClose, inline = false, voiceMode = 'positive' }, ref) {
-  const [duration,  setDuration]  = useState(90)
-  const [remaining, setRemaining] = useState(90)
+  const [duration,  setDuration]  = useState(60)
+  const [remaining, setRemaining] = useState(60)
   const [running,   setRunning]   = useState(false)
   const [ding,      setDing]      = useState(false)
 
@@ -60,8 +60,8 @@ const RestTimer = forwardRef(function RestTimer({ onClose, inline = false, voice
   // Absolute end timestamp — survives background throttling
   const endTimeRef  = useRef(null)
   // Refs mirror state so interval/visibility callbacks don't go stale
-  const durationRef  = useRef(90)
-  const remainingRef = useRef(90)
+  const durationRef  = useRef(60)
+  const remainingRef = useRef(60)
 
   useEffect(() => { durationRef.current  = duration  }, [duration])
   useEffect(() => { remainingRef.current = remaining }, [remaining])

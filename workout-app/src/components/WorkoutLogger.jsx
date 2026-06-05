@@ -204,12 +204,24 @@ function SetRow({ set, index, onUpdate, onRemove, lastSessionSet, exerciseHistor
 function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMoveUp, onRemove, onUpdateNotes, pr, exerciseHistory }) {
   const [expanded, setExpanded] = useState(true)
   const [showLastSession, setShowLastSession] = useState(false)
+  const [confirmRemove, setConfirmRemove] = useState(false)
+  const confirmTimer = useRef(null)
   const maxWeight = exercise.sets.length > 0 ? Math.max(...exercise.sets.map(s => Number(s.weight) || 0)) : 0
   const isPR = maxWeight > 0 && maxWeight > pr
 
   const lastSession = exerciseHistory && exerciseHistory.length > 0 ? exerciseHistory[exerciseHistory.length - 1] : null
   const lastWeight = lastSession?.maxWeight || 0
   const lastReps = lastSession?.sets?.[0]?.reps || 0
+
+  const handleRemovePress = () => {
+    if (confirmRemove) {
+      clearTimeout(confirmTimer.current)
+      onRemove(exercise.name)
+    } else {
+      setConfirmRemove(true)
+      confirmTimer.current = setTimeout(() => setConfirmRemove(false), 3000)
+    }
+  }
 
   const handleAddSet = () => {
     const last = exercise.sets[exercise.sets.length - 1]
@@ -232,7 +244,11 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
             style={{ background: exercise.readyToMoveUp ? '#00d4ff22' : 'transparent', color: exercise.readyToMoveUp ? '#00d4ff' : '#444' }}>
             <ArrowUpCircle size={18} />
           </button>
-          <button onClick={() => onRemove(exercise.name)} className="p-1.5" style={{ color: '#444' }}><X size={16} /></button>
+          <button onClick={handleRemovePress}
+            className="p-2.5 rounded-lg transition-all"
+            style={{ color: confirmRemove ? '#ef4444' : '#444', background: confirmRemove ? '#ef444418' : 'transparent' }}>
+            {confirmRemove ? <span className="text-xs font-bold" style={{ color: '#ef4444' }}>remove?</span> : <X size={18} />}
+          </button>
           <button onClick={() => setExpanded(e => !e)} style={{ color: '#444' }}>
             {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </button>
@@ -513,6 +529,11 @@ function WorkoutCard({ workout, onSoftDelete, onArchive, onStartAgain, onEdit })
 function WorkoutEditModal({ workout, onSave, onClose }) {
   const [name, setName]   = useState(workout.name || '')
   const [date, setDate]   = useState(workout.date || '')
+  const [durationMins, setDurationMins] = useState(
+    workout.endTime && workout.startTime
+      ? String(Math.round((workout.endTime - workout.startTime) / 60000))
+      : ''
+  )
   const [exercises, setExercises] = useState(
     workout.exercises.map(ex => ({ ...ex, sets: ex.sets.map(s => ({ ...s })) }))
   )
@@ -548,7 +569,11 @@ function WorkoutEditModal({ workout, onSave, onClose }) {
   }
 
   const handleSave = () => {
-    onSave({ name: name.trim() || null, date, exercises })
+    const mins = parseInt(durationMins)
+    const endTime = !isNaN(mins) && mins > 0 && workout.startTime
+      ? workout.startTime + mins * 60000
+      : workout.endTime
+    onSave({ name: name.trim() || null, date, exercises, endTime })
     onClose()
   }
 
@@ -575,6 +600,15 @@ function WorkoutEditModal({ workout, onSave, onClose }) {
             <label className="text-xs font-bold uppercase tracking-widest mb-1.5 block" style={{ color: '#555' }}>Date</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)}
               className="w-full px-4 py-3 rounded-xl text-white outline-none" style={{ background: '#141414', fontSize: 16, colorScheme: 'dark' }} />
+          </div>
+
+          {/* Duration */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-widest mb-1.5 block" style={{ color: '#555' }}>Duration (minutes)</label>
+            <input type="number" inputMode="numeric" value={durationMins}
+              onChange={e => setDurationMins(e.target.value)}
+              placeholder="e.g. 45"
+              className="w-full px-4 py-3 rounded-xl text-white outline-none" style={{ background: '#141414', fontSize: 16 }} />
           </div>
 
           {/* Exercises */}
