@@ -188,27 +188,27 @@ export const EXERCISES = [
   { name: 'Cable Crunch',               split: 'LegsAbs',    muscleGroup: 'Abs',         primaryMuscles: ['abs'],                   secondaryMuscles: [] },
 
   // ── KETTLEBELL ─────────────────────────────────────────────────────────────
-  { name: 'KB Swing',                   split: 'Kettlebell', muscleGroup: 'KB Full Body',primaryMuscles: ['glutes','hamstrings'],    secondaryMuscles: ['lower_back','traps'] },
-  { name: 'KB Turkish Get Up',          split: 'Kettlebell', muscleGroup: 'KB Full Body',primaryMuscles: ['front_delt','abs'],       secondaryMuscles: ['glutes','triceps'] },
-  { name: 'KB Clean',                   split: 'Kettlebell', muscleGroup: 'KB Full Body',primaryMuscles: ['glutes','hamstrings'],    secondaryMuscles: ['traps','biceps','lower_back'] },
-  { name: 'KB Snatch',                  split: 'Kettlebell', muscleGroup: 'KB Full Body',primaryMuscles: ['glutes','hamstrings'],    secondaryMuscles: ['traps','front_delt','lower_back'] },
-  { name: 'KB Clean & Press',           split: 'Kettlebell', muscleGroup: 'KB Full Body',primaryMuscles: ['glutes','front_delt'],    secondaryMuscles: ['traps','triceps','lower_back'] },
-  { name: 'KB Goblet Squat',            split: 'Kettlebell', muscleGroup: 'KB Legs',     primaryMuscles: ['quads'],                 secondaryMuscles: ['glutes','hamstrings'] },
-  { name: 'KB Deadlift',                split: 'Kettlebell', muscleGroup: 'KB Legs',     primaryMuscles: ['hamstrings','glutes'],    secondaryMuscles: ['lower_back','traps'] },
-  { name: 'KB Front Squat',             split: 'Kettlebell', muscleGroup: 'KB Legs',     primaryMuscles: ['quads'],                 secondaryMuscles: ['glutes','front_delt'] },
-  { name: 'KB Lunge',                   split: 'Kettlebell', muscleGroup: 'KB Legs',     primaryMuscles: ['quads'],                 secondaryMuscles: ['glutes','hamstrings'] },
-  { name: 'KB RDL',                     split: 'Kettlebell', muscleGroup: 'KB Legs',     primaryMuscles: ['hamstrings'],            secondaryMuscles: ['glutes','lower_back'] },
-  { name: 'KB Press',                   split: 'Kettlebell', muscleGroup: 'KB Shoulder', primaryMuscles: ['front_delt'],            secondaryMuscles: ['side_delt','triceps'] },
-  { name: 'KB Push Press',              split: 'Kettlebell', muscleGroup: 'KB Shoulder', primaryMuscles: ['front_delt'],            secondaryMuscles: ['side_delt','triceps','quads'] },
-  { name: 'KB Halo',                    split: 'Kettlebell', muscleGroup: 'KB Shoulder', primaryMuscles: ['side_delt'],             secondaryMuscles: ['front_delt','traps'] },
-  { name: 'KB Windmill',                split: 'Kettlebell', muscleGroup: 'KB Shoulder', primaryMuscles: ['front_delt'],            secondaryMuscles: ['abs','side_delt','glutes'] },
-  { name: 'KB Row',                     split: 'Kettlebell', muscleGroup: 'KB Back',     primaryMuscles: ['mid_back'],              secondaryMuscles: ['lats','biceps','rear_delt'] },
-  { name: 'KB Lat Pullover',            split: 'Kettlebell', muscleGroup: 'KB Back',     primaryMuscles: ['lats'],                  secondaryMuscles: ['chest'] },
-  { name: 'KB Crush Curl',              split: 'Kettlebell', muscleGroup: 'KB Arms',     primaryMuscles: ['biceps'],                secondaryMuscles: ['forearms'] },
-  { name: 'KB Tricep Kickback',         split: 'Kettlebell', muscleGroup: 'KB Arms',     primaryMuscles: ['triceps'],               secondaryMuscles: [] },
-  { name: 'KB Farmer Carry',            split: 'Kettlebell', muscleGroup: 'KB Cardio',   primaryMuscles: ['traps','forearms'],       secondaryMuscles: ['glutes','abs'] },
-  { name: 'KB Around the World',        split: 'Kettlebell', muscleGroup: 'KB Cardio',   primaryMuscles: ['abs'],                   secondaryMuscles: ['side_delt','front_delt'] },
-  { name: 'KB Figure Eight',            split: 'Kettlebell', muscleGroup: 'KB Cardio',   primaryMuscles: ['abs'],                   secondaryMuscles: ['quads','glutes'] },
+  { name: 'KB Swing',                   split: 'Kettlebell', muscleGroup: 'Kettlebell',primaryMuscles: ['glutes','hamstrings'],    secondaryMuscles: ['lower_back','traps'] },
+  { name: 'KB Turkish Get Up',          split: 'Kettlebell', muscleGroup: 'Kettlebell',primaryMuscles: ['front_delt','abs'],       secondaryMuscles: ['glutes','triceps'] },
+  { name: 'KB Clean',                   split: 'Kettlebell', muscleGroup: 'Kettlebell',primaryMuscles: ['glutes','hamstrings'],    secondaryMuscles: ['traps','biceps','lower_back'] },
+  { name: 'KB Snatch',                  split: 'Kettlebell', muscleGroup: 'Kettlebell',primaryMuscles: ['glutes','hamstrings'],    secondaryMuscles: ['traps','front_delt','lower_back'] },
+  { name: 'KB Clean & Press',           split: 'Kettlebell', muscleGroup: 'Kettlebell',primaryMuscles: ['glutes','front_delt'],    secondaryMuscles: ['traps','triceps','lower_back'] },
+  { name: 'KB Goblet Squat',            split: 'Kettlebell', muscleGroup: 'Kettlebell',     primaryMuscles: ['quads'],                 secondaryMuscles: ['glutes','hamstrings'] },
+  { name: 'KB Deadlift',                split: 'Kettlebell', muscleGroup: 'Kettlebell',     primaryMuscles: ['hamstrings','glutes'],    secondaryMuscles: ['lower_back','traps'] },
+  { name: 'KB Front Squat',             split: 'Kettlebell', muscleGroup: 'Kettlebell',     primaryMuscles: ['quads'],                 secondaryMuscles: ['glutes','front_delt'] },
+  { name: 'KB Lunge',                   split: 'Kettlebell', muscleGroup: 'Kettlebell',     primaryMuscles: ['quads'],                 secondaryMuscles: ['glutes','hamstrings'] },
+  { name: 'KB RDL',                     split: 'Kettlebell', muscleGroup: 'Kettlebell',     primaryMuscles: ['hamstrings'],            secondaryMuscles: ['glutes','lower_back'] },
+  { name: 'KB Press',                   split: 'Kettlebell', muscleGroup: 'Kettlebell', primaryMuscles: ['front_delt'],            secondaryMuscles: ['side_delt','triceps'] },
+  { name: 'KB Push Press',              split: 'Kettlebell', muscleGroup: 'Kettlebell', primaryMuscles: ['front_delt'],            secondaryMuscles: ['side_delt','triceps','quads'] },
+  { name: 'KB Halo',                    split: 'Kettlebell', muscleGroup: 'Kettlebell', primaryMuscles: ['side_delt'],             secondaryMuscles: ['front_delt','traps'] },
+  { name: 'KB Windmill',                split: 'Kettlebell', muscleGroup: 'Kettlebell', primaryMuscles: ['front_delt'],            secondaryMuscles: ['abs','side_delt','glutes'] },
+  { name: 'KB Row',                     split: 'Kettlebell', muscleGroup: 'Kettlebell',     primaryMuscles: ['mid_back'],              secondaryMuscles: ['lats','biceps','rear_delt'] },
+  { name: 'KB Lat Pullover',            split: 'Kettlebell', muscleGroup: 'Kettlebell',     primaryMuscles: ['lats'],                  secondaryMuscles: ['chest'] },
+  { name: 'KB Crush Curl',              split: 'Kettlebell', muscleGroup: 'Kettlebell',     primaryMuscles: ['biceps'],                secondaryMuscles: ['forearms'] },
+  { name: 'KB Tricep Kickback',         split: 'Kettlebell', muscleGroup: 'Kettlebell',     primaryMuscles: ['triceps'],               secondaryMuscles: [] },
+  { name: 'KB Farmer Carry',            split: 'Kettlebell', muscleGroup: 'Kettlebell',   primaryMuscles: ['traps','forearms'],       secondaryMuscles: ['glutes','abs'] },
+  { name: 'KB Around the World',        split: 'Kettlebell', muscleGroup: 'Kettlebell',   primaryMuscles: ['abs'],                   secondaryMuscles: ['side_delt','front_delt'] },
+  { name: 'KB Figure Eight',            split: 'Kettlebell', muscleGroup: 'Kettlebell',   primaryMuscles: ['abs'],                   secondaryMuscles: ['quads','glutes'] },
 ]
 
 export const SPLITS = ['ChestBi', 'BackTri', 'Shoulders', 'LegsAbs', 'Kettlebell']
@@ -219,6 +219,56 @@ export const SPLIT_LABELS = {
   Shoulders:  'Shoulders',
   LegsAbs:    'Legs & Abs',
   Kettlebell: 'Kettlebell',
+}
+
+// Infer equipment type from an exercise object or name string.
+// Custom exercises already carry an `equipment` field — use that when present.
+export function inferEquipment(ex) {
+  if (ex && typeof ex === 'object' && ex.equipment) {
+    const e = ex.equipment.toLowerCase()
+    if (e === 'barbell')    return 'BB'
+    if (e === 'dumbbell')   return 'DB'
+    if (e === 'kettlebell') return 'KB'
+    if (e === 'cable')      return 'Cable'
+    if (e === 'machine')    return 'Machine'
+    if (e === 'bodyweight') return 'BW'
+    return ex.equipment
+  }
+  const n = (typeof ex === 'string' ? ex : ex?.name ?? '').toLowerCase()
+
+  if (n.startsWith('kb ') || n.includes(' kb '))              return 'KB'
+  if (/\bbb\b/.test(n))                                        return 'BB'
+  if (/\bdb\b/.test(n))                                        return 'DB'
+  if (/\bez\b/.test(n) || n.includes('camber') || n.includes('curl bar')) return 'EZ'
+  if (n.includes('hex bar') || /\bhb\b/.test(n))               return 'BB'
+  if (n.includes('cable') || n.includes('mag grip') || n.includes('rope ')) return 'Cable'
+  if (n.includes('machine') || n.includes('smith'))            return 'Machine'
+  if (n.includes('assisted'))                                  return 'Machine'
+  if (n.includes('plate') && !n.includes('shoulder'))          return 'Plate'
+  if (n.includes('pushdown') || n.includes('pull down'))       return 'Cable'
+  if (n.includes('dips') || n.includes('push up') || n.includes('pull up') || n.includes('chin up')) return 'BW'
+  if (n.includes('face pull'))                                 return 'Cable'
+  if (n.includes('back squat') || n.includes('front squat') || n.includes('t bar') || n.includes('hang clean')) return 'BB'
+  if (n.includes('hack squat') || n.includes('belt squat'))   return 'Machine'
+  if (n.includes('leg press') || n.includes('leg curl') || n.includes('leg extension')) return 'Machine'
+  if (n.includes('calf raise'))                               return 'Machine'
+  if (n.includes('abduction') || n.includes('adduction'))     return 'Machine'
+  if (n.includes('prone leg') || n.includes('glute back'))    return 'Machine'
+  if (n.includes('lat push') || n.includes('row') && n.includes('cable')) return 'Cable'
+
+  return null
+}
+
+// Equipment color palette
+export const EQUIP_COLORS = {
+  BB:      { bg: '#f59e0b22', text: '#f59e0b', border: '#f59e0b55' },
+  DB:      { bg: '#3b82f622', text: '#3b82f6', border: '#3b82f655' },
+  KB:      { bg: '#a78bfa22', text: '#a78bfa', border: '#a78bfa55' },
+  Cable:   { bg: '#f9731622', text: '#f97316', border: '#f9731655' },
+  Machine: { bg: '#22d3ee22', text: '#22d3ee', border: '#22d3ee55' },
+  BW:      { bg: '#22c55e22', text: '#22c55e', border: '#22c55e55' },
+  EZ:      { bg: '#f43f5e22', text: '#f43f5e', border: '#f43f5e55' },
+  Plate:   { bg: '#84cc1622', text: '#84cc16', border: '#84cc1655' },
 }
 
 export function getExerciseByName(name) {

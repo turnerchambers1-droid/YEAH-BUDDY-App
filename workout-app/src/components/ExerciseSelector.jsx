@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
-import { X, Search, Plus, Sparkles } from 'lucide-react'
-import { EXERCISES, MUSCLE_LABELS } from '../data/exercises'
+import { X, Search, Plus } from 'lucide-react'
+import { EXERCISES, MUSCLE_LABELS, inferEquipment, EQUIP_COLORS } from '../data/exercises'
 import { useWorkoutStore } from '../store/workoutStore'
 import { useWgerGif } from '../utils/wgerGif'
 
@@ -9,15 +9,34 @@ function fuzzyScore(a, b) {
   a = a.toLowerCase(); b = b.toLowerCase()
   if (a === b) return 0
   if (a.includes(b) || b.includes(a)) return 1
-  // Word overlap
   const aWords = a.split(/\s+/)
   const bWords = b.split(/\s+/)
   const overlap = aWords.filter(w => bWords.some(bw => bw.includes(w) || w.includes(bw)))
   if (overlap.length > 0) return 2 - overlap.length * 0.1
-  // Char similarity
   let matches = 0
   for (let i = 0; i < Math.min(a.length, b.length); i++) if (a[i] === b[i]) matches++
   return 3 - matches / Math.max(a.length, b.length)
+}
+
+// Equipment badge chip
+function EquipBadge({ eq, small = false }) {
+  const c = EQUIP_COLORS[eq]
+  if (!c) return null
+  return (
+    <span
+      className="flex-shrink-0 font-bold rounded"
+      style={{
+        background: c.bg,
+        color: c.text,
+        border: `1px solid ${c.border}`,
+        fontSize: small ? 9 : 10,
+        padding: small ? '1px 5px' : '2px 6px',
+        letterSpacing: '0.03em',
+      }}
+    >
+      {eq}
+    </span>
+  )
 }
 
 // Create New Exercise inline form
@@ -27,7 +46,7 @@ function CreateExerciseForm({ onAdd, onClose, initialName = '' }) {
   const [equipment, setEquipment] = useState('')
 
   const MUSCLE_OPTIONS = Object.entries(MUSCLE_LABELS).slice(0, 16)
-  const EQUIPMENT_OPTIONS = ['Barbell', 'Dumbbell', 'Cable', 'Machine', 'Bodyweight', 'Other']
+  const EQUIPMENT_OPTIONS = ['Barbell', 'Dumbbell', 'Kettlebell', 'Cable', 'Machine', 'Bodyweight', 'Other']
 
   const inferSplit = (muscle) => {
     if (['chest', 'biceps', 'forearms'].includes(muscle)) return 'ChestBi'
@@ -109,9 +128,10 @@ function CreateExerciseForm({ onAdd, onClose, initialName = '' }) {
   )
 }
 
-// Exercise row with optional GIF thumbnail
+// Exercise row with equipment badge + optional GIF thumbnail
 function ExerciseRow({ ex, isAdded, onSelect, showGif, borderBottom }) {
   const gif = useWgerGif(showGif ? ex.name : null)
+  const eq  = inferEquipment(ex)
 
   return (
     <button
@@ -122,43 +142,67 @@ function ExerciseRow({ ex, isAdded, onSelect, showGif, borderBottom }) {
       <div className="flex items-center gap-3 flex-1 min-w-0">
         {showGif && (
           <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: '#2a2a2a' }}>
-            {gif ? (
-              <img src={gif} alt="" className="w-full h-full object-cover" loading="lazy" />
-            ) : (
-              <div className="w-4 h-4 rounded-full" style={{ background: '#3a3a3a' }} />
-            )}
+            {gif
+              ? <img src={gif} alt="" className="w-full h-full object-cover" loading="lazy" />
+              : <div className="w-4 h-4 rounded-full" style={{ background: '#3a3a3a' }} />
+            }
           </div>
         )}
-        <div className="min-w-0">
-          <div className="text-white text-sm font-medium truncate">{ex.name}</div>
-          <div className="text-xs mt-0.5" style={{ color: '#666' }}>
-            {ex.primaryMuscles.map(m => m.replace('_', ' ')).join(', ')}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-white text-sm font-medium truncate">{ex.name}</span>
+            {eq && <EquipBadge eq={eq} />}
+          </div>
+          <div className="text-xs mt-0.5" style={{ color: '#555' }}>
+            {ex.primaryMuscles.map(m => m.replace(/_/g, ' ')).join(', ')}
           </div>
         </div>
       </div>
-      {isAdded ? (
-        <span className="text-xs ml-2 flex-shrink-0" style={{ color: '#22c55e' }}>Added</span>
-      ) : (
-        <Plus size={18} className="text-gray-600 flex-shrink-0" />
-      )}
+      {isAdded
+        ? <span className="text-xs ml-2 flex-shrink-0" style={{ color: '#22c55e' }}>Added</span>
+        : <Plus size={18} className="text-gray-600 flex-shrink-0 ml-2" />
+      }
     </button>
   )
 }
 
+const MUSCLE_GROUPS = [
+  'Chest','Back','Shoulder','Bicep','Tricep','Quad','Hamstring',
+  'Glute','Abs','Calf','Forearm','Rear Delt','Trap','Kettlebell',
+]
+
 export default function ExerciseSelector({ onSelect, onClose, currentExercises = [] }) {
   const store = useWorkoutStore()
-  const MUSCLE_GROUPS = ['Chest','Back','Shoulder','Bicep','Tricep','Quad','Hamstring','Glute','Abs','Calf','Forearm','Rear Delt','Trap']
-  const [search, setSearch] = useState('')
+  const [search,      setSearch]      = useState('')
   const [activeGroup, setActiveGroup] = useState('Chest')
-  const [showCreate, setShowCreate] = useState(false)
+  const [activeEquip, setActiveEquip] = useState(null)
+  const [showCreate,  setShowCreate]  = useState(false)
 
-  const allExercises = useMemo(() => [...EXERCISES, ...(store.customExercises || [])], [store.customExercises])
+  const allExercises = useMemo(
+    () => [...EXERCISES, ...(store.customExercises || [])],
+    [store.customExercises]
+  )
 
-  const filtered = useMemo(() => {
+  // Pre-equipment-filter pool (search + muscle group)
+  const allFiltered = useMemo(() => {
     const q = search.toLowerCase().trim()
     const pool = search ? allExercises : allExercises.filter(e => e.muscleGroup === activeGroup)
     return pool.filter(e => !q || e.name.toLowerCase().includes(q))
   }, [search, activeGroup, allExercises])
+
+  // Equipment types present in this view
+  const equipTypes = useMemo(() => {
+    const seen = new Set()
+    allFiltered.forEach(e => { const eq = inferEquipment(e); if (eq) seen.add(eq) })
+    const ORDER = ['BB','DB','KB','Cable','Machine','BW','EZ','Plate']
+    return ORDER.filter(t => seen.has(t))
+  }, [allFiltered])
+
+  // Final filtered list (applies equipment filter on top)
+  const filtered = useMemo(() => {
+    if (!activeEquip) return allFiltered
+    return allFiltered.filter(e => inferEquipment(e) === activeEquip)
+  }, [allFiltered, activeEquip])
 
   // Fuzzy suggestions when no results
   const fuzzySuggestions = useMemo(() => {
@@ -182,8 +226,8 @@ export default function ExerciseSelector({ onSelect, onClose, currentExercises =
     return map
   }, [filtered])
 
-  const isAdded = (name) => currentExercises.includes(name)
-  const showGif = !!search && filtered.length > 0 && filtered.length <= 20
+  const isAdded  = (name) => currentExercises.includes(name)
+  const showGif  = !!search && filtered.length > 0 && filtered.length <= 20
 
   const handleAddCustom = (exercise) => {
     store.addCustomExercise(exercise)
@@ -195,9 +239,7 @@ export default function ExerciseSelector({ onSelect, onClose, currentExercises =
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#0a0a0a' }}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-14 pb-3" style={{ borderBottom: '1px solid #1e1e1e' }}>
-        <button onClick={onClose} className="text-gray-400 hover:text-white">
-          <X size={22} />
-        </button>
+        <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={22} /></button>
         <span className="text-white font-semibold text-lg flex-1">Add Exercise</span>
       </div>
 
@@ -210,11 +252,11 @@ export default function ExerciseSelector({ onSelect, onClose, currentExercises =
             type="text"
             placeholder="Search exercises..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); setActiveEquip(null) }}
             className="flex-1 bg-transparent text-white text-sm outline-none placeholder-gray-500"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="text-gray-500">
+            <button onClick={() => { setSearch(''); setActiveEquip(null) }} className="text-gray-500">
               <X size={14} />
             </button>
           )}
@@ -223,20 +265,49 @@ export default function ExerciseSelector({ onSelect, onClose, currentExercises =
 
       {/* Muscle group tabs (hidden during search) */}
       {!search && (
-        <div className="flex px-4 gap-2 pb-3 overflow-x-auto">
+        <div className="flex px-4 gap-2 pb-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           {MUSCLE_GROUPS.map(g => (
             <button
               key={g}
-              onClick={() => setActiveGroup(g)}
+              onClick={() => { setActiveGroup(g); setActiveEquip(null) }}
               className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-colors"
               style={{
                 background: activeGroup === g ? '#22c55e' : '#1e1e1e',
-                color: activeGroup === g ? '#000' : '#888',
+                color:      activeGroup === g ? '#000'    : '#888',
               }}
-            >
-              {g}
-            </button>
+            >{g}</button>
           ))}
+        </div>
+      )}
+
+      {/* Equipment filter chips */}
+      {equipTypes.length > 0 && (
+        <div className="flex px-4 gap-2 pb-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          {activeEquip && (
+            <button
+              onClick={() => setActiveEquip(null)}
+              className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold"
+              style={{ background: '#1e1e1e', color: '#888', border: '1px solid #2a2a2a' }}
+            >
+              <X size={10} /> All
+            </button>
+          )}
+          {equipTypes.map(eq => {
+            const c = EQUIP_COLORS[eq]
+            const active = activeEquip === eq
+            return (
+              <button
+                key={eq}
+                onClick={() => setActiveEquip(active ? null : eq)}
+                className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold"
+                style={{
+                  background: active ? c.bg : '#1e1e1e',
+                  color:      active ? c.text : '#666',
+                  border:     active ? `1px solid ${c.border}` : '1px solid #2a2a2a',
+                }}
+              >{eq}</button>
+            )
+          })}
         </div>
       )}
 
@@ -285,6 +356,14 @@ export default function ExerciseSelector({ onSelect, onClose, currentExercises =
               <Plus size={16} />
               Create "{search}"
             </button>
+          </div>
+        )}
+
+        {/* Equipment-filter empty state */}
+        {activeEquip && filtered.length === 0 && (
+          <div className="flex flex-col items-center gap-2 py-10" style={{ color: '#555' }}>
+            <span className="text-sm">No {activeEquip} exercises in this group</span>
+            <button onClick={() => setActiveEquip(null)} className="text-xs underline" style={{ color: '#888' }}>Clear filter</button>
           </div>
         )}
 
