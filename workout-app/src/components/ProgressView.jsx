@@ -4,8 +4,9 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
 import { useWorkoutStore } from '../store/workoutStore'
-import { EXERCISES, MUSCLE_LABELS, SPLIT_LABELS } from '../data/exercises'
+import { EXERCISES, MUSCLE_LABELS, SPLIT_LABELS, getExerciseMeta } from '../data/exercises'
 import { useWgerGif } from '../utils/wgerGif'
+import ExerciseLabel from './ExerciseLabel'
 
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
@@ -29,7 +30,7 @@ function ExerciseProgressModal({ exercise, history, onClose }) {
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#0a0a0a' }}>
       <div className="flex items-center gap-3 px-4 pt-14 pb-3" style={{ borderBottom: '1px solid #1e1e1e' }}>
         <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={22} /></button>
-        <span className="text-white font-semibold text-lg flex-1">{exercise.name}</span>
+        <span className="flex-1"><ExerciseLabel name={exercise.name} textClassName="text-white font-semibold text-lg" /></span>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
@@ -117,7 +118,7 @@ function WorkoutExerciseRow({ exercise }) {
         }
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-white text-sm font-medium truncate">{exercise.name}</div>
+        <ExerciseLabel name={exercise.name} small textClassName="text-white text-sm font-medium truncate" />
         {topSet && (
           <div className="text-xs" style={{ color: '#555' }}>
             {exercise.sets.length} set{exercise.sets.length !== 1 ? 's' : ''}
@@ -141,7 +142,9 @@ function generateSummary(workout) {
   if (duration) text += ` · ${duration} min`
   text += '\n\n'
   workout.exercises.forEach(ex => {
-    text += `${ex.name}\n`
+    const meta = getExerciseMeta(ex.name)
+    const tags = [meta.equipment, meta.unilateral ? 'SA' : null].filter(Boolean).join(', ')
+    text += `${meta.displayName || meta.name}${tags ? ` (${tags})` : ''}\n`
     ex.sets.forEach((s, i) => {
       const w = s.weight === 'BW' ? 'BW' : s.weight ? `${s.weight} lbs` : ''
       const r = s.reps ? `${s.reps} reps` : ''
@@ -366,7 +369,7 @@ export default function ProgressView() {
                     style={{ background: '#141414' }}
                   >
                     <div>
-                      <div className="text-white font-semibold text-sm">{ex.name}</div>
+                      <ExerciseLabel name={ex.name} small textClassName="text-white font-semibold text-sm" />
                       <div className="text-xs mt-1" style={{ color: '#555' }}>
                         {history.length} session{history.length !== 1 ? 's' : ''} · PR: {pr > 0 ? `${pr} lbs` : '—'}
                       </div>

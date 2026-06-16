@@ -5,6 +5,7 @@ import { db } from '../firebase'
 import { useWorkoutStore } from '../store/workoutStore'
 import { SPLIT_LABELS } from '../data/exercises'
 import { useWgerGif } from '../utils/wgerGif'
+import ExerciseLabel from './ExerciseLabel'
 
 // ── Time-ago helper ────────────────────────────────────────────────────────
 function timeAgo(ts) {
@@ -42,7 +43,7 @@ function SocialExerciseRow({ exercise }) {
         {gif ? <img src={gif} alt="" className="w-full h-full object-cover" loading="lazy" /> : <Dumbbell size={14} color="#555" />}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-white text-xs font-medium truncate">{exercise.name}</div>
+        <ExerciseLabel name={exercise.name} small textClassName="text-white text-xs font-medium truncate" />
         {topSet && (
           <div className="text-xs" style={{ color: '#555' }}>
             {exercise.sets.length}×{topSet.reps || '?'}

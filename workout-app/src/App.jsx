@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Dumbbell, BookOpen, TrendingUp, User, Users, RotateCcw, X, Trash2, LogOut, Download, Upload } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Dumbbell, BookOpen, TrendingUp, User, Users, RotateCcw, X, Trash2, LogOut, Download, Upload, BarChart3 } from 'lucide-react'
 import WorkoutLogger  from './components/WorkoutLogger'
 import LibraryView    from './components/LibraryView'
 import ProgressView   from './components/ProgressView'
@@ -105,10 +105,102 @@ function RecentlyDeletedModal({ store, onClose }) {
   )
 }
 
+// ── Usage report modal (lives in Profile) ─────────────────────────────────
+const TAB_LABELS = { workout: 'Workout', library: 'Exercises', progress: 'Progress', social: 'Community', profile: 'Profile' }
+
+function formatDuration(seconds) {
+  if (seconds < 60) return `${seconds}s`
+  const mins = Math.round(seconds / 60)
+  if (mins < 60) return `${mins}m`
+  const hrs = Math.floor(mins / 60)
+  return `${hrs}h ${mins % 60}m`
+}
+
+function buildInsights(usageStats) {
+  const { counts, tabSeconds } = usageStats
+  const insights = []
+
+  const totalTabSeconds = Object.values(tabSeconds).reduce((a, b) => a + b, 0)
+  const [topTab] = Object.entries(tabSeconds).sort((a, b) => b[1] - a[1])
+  if (totalTabSeconds > 0 && topTab[1] > 0) {
+    insights.push(`You spend the most time in ${TAB_LABELS[topTab[0]]} (${formatDuration(topTab[1])} so far).`)
+  }
+  if (totalTabSeconds > 0 && tabSeconds.progress / totalTabSeconds < 0.05 && counts.setsLogged > 20) {
+    insights.push(`You rarely open Progress — check it after sessions to spot PRs and stalls.`)
+  }
+  if (counts.setsLogged > 10 && counts.timerStarts / Math.max(1, counts.setsLogged) < 0.3) {
+    insights.push(`You log sets a lot more than you start the rest timer — using it consistently can help pace recovery.`)
+  }
+  if (counts.exerciseSearches > 15 && counts.exercisesAdded > 0 && counts.exerciseSearches / counts.exercisesAdded > 3) {
+    insights.push(`You search for exercises often before adding one — saving a Home Tile or template could speed this up.`)
+  }
+  if (counts.editModalOpens > 8) {
+    insights.push(`You edit logged workouts often — double-check details while logging to need fewer edits.`)
+  }
+  if (insights.length === 0) {
+    insights.push(`Keep using the app — insights show up here once there's more activity to learn from.`)
+  }
+  return insights
+}
+
+function UsageReportModal({ store, onClose }) {
+  const { tabSeconds, counts } = store.usageStats || { tabSeconds: {}, counts: {} }
+  const sortedTabs = Object.entries(tabSeconds).sort((a, b) => b[1] - a[1])
+  const insights = buildInsights(store.usageStats)
+
+  const COUNT_ROWS = [
+    ['setsLogged', 'Sets logged'],
+    ['exercisesAdded', 'Exercises added'],
+    ['workoutsFinished', 'Workouts finished'],
+    ['timerStarts', 'Rest timer starts'],
+    ['exerciseSearches', 'Exercise searches'],
+    ['lastSessionViews', '"Last time" views'],
+    ['editModalOpens', 'Workout edits opened'],
+  ]
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#0a0a0a' }}>
+      <div className="flex items-center gap-3 px-4 pt-14 pb-3" style={{ borderBottom: '1px solid #1e1e1e' }}>
+        <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={22} /></button>
+        <span className="text-white font-semibold text-lg flex-1">App Insights</span>
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#555' }}>Insights</div>
+        <div className="rounded-2xl p-4 mb-5 flex flex-col gap-2" style={{ background: '#141414' }}>
+          {insights.map((line, i) => (
+            <p key={i} className="text-sm" style={{ color: '#ccc' }}>{line}</p>
+          ))}
+        </div>
+
+        <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#555' }}>Time per tab</div>
+        <div className="rounded-2xl overflow-hidden mb-5" style={{ background: '#141414' }}>
+          {sortedTabs.map(([key, secs], i) => (
+            <div key={key} className="flex items-center justify-between px-4 py-3" style={{ borderBottom: i < sortedTabs.length - 1 ? '1px solid #1e1e1e' : 'none' }}>
+              <span className="text-white text-sm font-medium">{TAB_LABELS[key] || key}</span>
+              <span className="text-xs" style={{ color: '#22c55e' }}>{formatDuration(secs)}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#555' }}>Activity</div>
+        <div className="rounded-2xl overflow-hidden mb-5" style={{ background: '#141414' }}>
+          {COUNT_ROWS.map(([key, label], i) => (
+            <div key={key} className="flex items-center justify-between px-4 py-3" style={{ borderBottom: i < COUNT_ROWS.length - 1 ? '1px solid #1e1e1e' : 'none' }}>
+              <span className="text-white text-sm font-medium">{label}</span>
+              <span className="text-xs" style={{ color: '#888' }}>{counts[key] || 0}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Profile tab ────────────────────────────────────────────────────────────
 function ProfileTab({ store, tab, setTab }) {
   const [showDeleted, setShowDeleted] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
+  const [showReport, setShowReport] = useState(false)
   const [importError, setImportError] = useState('')
   const deletedCount  = (store.recentlyDeleted || []).length
   const archivedCount = (store.archivedWorkouts || []).length
@@ -154,6 +246,7 @@ function ProfileTab({ store, tab, setTab }) {
             <button
               onClick={() => setShowArchived(true)}
               className="w-full flex items-center justify-between px-4 py-4 text-left active:bg-white/5"
+              style={{ borderBottom: '1px solid #1e1e1e' }}
             >
               <div className="flex items-center gap-3">
                 <span className="text-lg">📦</span>
@@ -164,6 +257,15 @@ function ProfileTab({ store, tab, setTab }) {
                   {archivedCount}
                 </span>
               )}
+            </button>
+            <button
+              onClick={() => setShowReport(true)}
+              className="w-full flex items-center justify-between px-4 py-4 text-left active:bg-white/5"
+            >
+              <div className="flex items-center gap-3">
+                <BarChart3 size={17} color="#22c55e" />
+                <span className="text-white text-sm font-medium">App Insights</span>
+              </div>
             </button>
           </div>
 
@@ -251,6 +353,8 @@ function ProfileTab({ store, tab, setTab }) {
 
       {showDeleted && <RecentlyDeletedModal store={store} onClose={() => setShowDeleted(false)} />}
 
+      {showReport && <UsageReportModal store={store} onClose={() => setShowReport(false)} />}
+
       {showArchived && (
         <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#0a0a0a' }}>
           <div className="flex items-center gap-3 px-4 pt-14 pb-3" style={{ borderBottom: '1px solid #1e1e1e' }}>
@@ -290,6 +394,15 @@ function ProfileTab({ store, tab, setTab }) {
 export default function App() {
   const [tab, setTab] = useState('workout')
   const store = useWorkoutStore()
+  const { trackTabSeconds } = store
+
+  useEffect(() => {
+    const start = Date.now()
+    return () => {
+      const seconds = Math.round((Date.now() - start) / 1000)
+      trackTabSeconds(tab, seconds)
+    }
+  }, [tab, trackTabSeconds])
 
   if (store.loading) return (
     <div className="fixed inset-0 flex items-center justify-center" style={{ background: '#0a0a0a' }}>

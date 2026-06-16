@@ -8,6 +8,15 @@ import { onAuthStateChanged, signOut as fbSignOut } from 'firebase/auth'
 import { auth, db } from '../firebase'
 
 // ── Default shape ──────────────────────────────────────────────────────────
+const DEFAULT_USAGE_STATS = {
+  tabSeconds: { workout: 0, library: 0, progress: 0, social: 0, profile: 0 },
+  counts: {
+    timerStarts: 0, exercisesAdded: 0, setsLogged: 0,
+    editModalOpens: 0, exerciseSearches: 0, workoutsFinished: 0, lastSessionViews: 0,
+  },
+  updatedAt: 0,
+}
+
 function defaultData() {
   return {
     workouts: [],
@@ -20,6 +29,24 @@ function defaultData() {
     friends: [],
     friendRequests: { sent: [], received: [] },
     voiceMode: 'positive',
+    usageStats: DEFAULT_USAGE_STATS,
+  }
+}
+
+function mergeUsageStats(saved) {
+  if (!saved) return DEFAULT_USAGE_STATS
+  return {
+    tabSeconds: { ...DEFAULT_USAGE_STATS.tabSeconds, ...saved.tabSeconds },
+    counts: { ...DEFAULT_USAGE_STATS.counts, ...saved.counts },
+    updatedAt: saved.updatedAt || 0,
+  }
+}
+
+function bumpCount(usageStats, key) {
+  return {
+    ...usageStats,
+    counts: { ...usageStats.counts, [key]: (usageStats.counts[key] || 0) + 1 },
+    updatedAt: Date.now(),
   }
 }
 
@@ -46,6 +73,17 @@ function updateUserDoc(uid, fields) {
   userDocTimer = setTimeout(() => {
     updateDoc(doc(db, 'users', uid), fields).catch(() => {})
   }, 600)
+}
+
+// Debounced Firestore write for usage telemetry — kept separate so frequent
+// taps never spam the same write queue as the active-workout autosave
+let usageDocTimer = null
+function flushUsageStats(uid, usageStats) {
+  if (!uid) return
+  clearTimeout(usageDocTimer)
+  usageDocTimer = setTimeout(() => {
+    updateDoc(doc(db, 'users', uid), { usageStats }).catch(() => {})
+  }, 4000)
 }
 
 // ── Load data and establish real-time listeners ────────────────────────────
@@ -86,6 +124,7 @@ async function initUserData(uid) {
       savedHomeTiles: data.savedHomeTiles || [],
       friends: data.friends || [],
       voiceMode: data.voiceMode || 'positive',
+      usageStats: mergeUsageStats(data.usageStats),
       loading: false,
     }))
   })
@@ -152,8 +191,9 @@ export function useWorkoutStore() {
       if (!s.activeWorkout) return s
       if (s.activeWorkout.exercises.find(e => e.name === exerciseName)) return s
       const updated = { ...s.activeWorkout, exercises: [...s.activeWorkout.exercises, { name: exerciseName, sets: [], readyToMoveUp: false, notes: '' }] }
-      if (uid) updateUserDoc(uid, { activeWorkout: updated })
-      return { ...s, activeWorkout: updated }
+      const usageStats = bumpCount(s.usageStats, 'exercisesAdded')
+      if (uid) { updateUserDoc(uid, { activeWorkout: updated }); flushUsageStats(uid, usageStats) }
+      return { ...s, activeWorkout: updated, usageStats }
     })
   }, [uid])
 
@@ -170,8 +210,9 @@ export function useWorkoutStore() {
     setState(s => {
       if (!s.activeWorkout) return s
       const updated = { ...s.activeWorkout, exercises: s.activeWorkout.exercises.map(e => e.name === exerciseName ? { ...e, sets: [...e.sets, { id: crypto.randomUUID(), ...set }] } : e) }
-      if (uid) updateUserDoc(uid, { activeWorkout: updated })
-      return { ...s, activeWorkout: updated }
+      const usageStats = bumpCount(s.usageStats, 'setsLogged')
+      if (uid) { updateUserDoc(uid, { activeWorkout: updated }); flushUsageStats(uid, usageStats) }
+      return { ...s, activeWorkout: updated, usageStats }
     })
   }, [uid])
 
@@ -224,11 +265,13 @@ export function useWorkoutStore() {
     setState(s => {
       if (!s.activeWorkout) return s
       const completed = { ...s.activeWorkout, endTime: Date.now(), date: new Date().toISOString().slice(0, 10) }
+      const usageStats = bumpCount(s.usageStats, 'workoutsFinished')
       if (uid) {
         setDoc(doc(db, 'users', uid, 'workouts', completed.id), completed).catch(() => {})
         updateUserDoc(uid, { activeWorkout: null })
+        flushUsageStats(uid, usageStats)
       }
-      return { ...s, workouts: [completed, ...s.workouts], activeWorkout: null }
+      return { ...s, workouts: [completed, ...s.workouts], activeWorkout: null, usageStats }
     })
   }, [uid])
 
@@ -420,6 +463,28 @@ export function useWorkoutStore() {
 
   const getWorkoutDates = useCallback(() => state.workouts.map(w => w.date), [state.workouts])
 
+  // ── Usage telemetry ────────────────────────────────────────────────────────
+  const trackUsage = useCallback((key) => {
+    setState(s => {
+      const usageStats = bumpCount(s.usageStats, key)
+      if (uid) flushUsageStats(uid, usageStats)
+      return { ...s, usageStats }
+    })
+  }, [uid])
+
+  const trackTabSeconds = useCallback((tabKey, seconds) => {
+    if (!seconds || seconds <= 0) return
+    setState(s => {
+      const usageStats = {
+        ...s.usageStats,
+        tabSeconds: { ...s.usageStats.tabSeconds, [tabKey]: (s.usageStats.tabSeconds[tabKey] || 0) + seconds },
+        updatedAt: Date.now(),
+      }
+      if (uid) flushUsageStats(uid, usageStats)
+      return { ...s, usageStats }
+    })
+  }, [uid])
+
   return {
     ...state,
     signOut,
@@ -434,5 +499,6 @@ export function useWorkoutStore() {
     addCustomExercise,
     sendFriendRequest, cancelFriendRequest, acceptFriendRequest, rejectFriendRequest, unfriend,
     getExerciseHistory, getPersonalRecord, getWorkoutDates,
+    trackUsage, trackTabSeconds,
   }
 }

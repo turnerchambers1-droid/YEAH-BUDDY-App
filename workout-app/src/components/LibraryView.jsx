@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react'
 import { Search, X, ChevronRight, Sparkles, Plus } from 'lucide-react'
-import { EXERCISES, MUSCLE_LABELS, SPLITS, SPLIT_LABELS } from '../data/exercises'
+import { EXERCISES, MUSCLE_LABELS, SPLITS, SPLIT_LABELS, inferEquipment } from '../data/exercises'
 import { useWorkoutStore } from '../store/workoutStore'
 import MuscleBodyMap from './MuscleBodyMap'
 import { useWgerGif } from '../utils/wgerGif'
+import { EquipBadge, SABadge } from './ExerciseLabel'
 
 // Specific-muscle grouping order (spec item 6)
 const MUSCLE_GROUP_ORDER = [
@@ -182,12 +183,17 @@ function NewExerciseModal({ onClose, onAdd }) {
 
 function ExerciseDetail({ exercise, onClose, pr }) {
   const gif = useWgerGif(exercise.name)
+  const eq = inferEquipment(exercise)
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#0a0a0a' }}>
       <div className="flex items-center gap-3 px-4 pt-14 pb-3" style={{ borderBottom: '1px solid #1e1e1e' }}>
         <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={22} /></button>
-        <span className="text-white font-semibold text-lg flex-1">{exercise.name}</span>
+        <span className="flex-1 flex items-center gap-1.5 flex-wrap">
+          <span className="text-white font-semibold text-lg">{exercise.displayName || exercise.name}</span>
+          {eq && <EquipBadge eq={eq} />}
+          {exercise.unilateral && <SABadge />}
+        </span>
       </div>
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
         {/* GIF */}
@@ -302,6 +308,7 @@ export default function LibraryView() {
               <div className="rounded-2xl overflow-hidden" style={{ background: '#141414' }}>
                 {exercises.map((ex, i) => {
                   const pr = store.getPersonalRecord(ex.name)
+                  const eq = inferEquipment(ex)
                   return (
                     <button
                       key={ex.name}
@@ -310,7 +317,11 @@ export default function LibraryView() {
                       style={{ borderBottom: i < exercises.length - 1 ? '1px solid #1e1e1e' : 'none' }}
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="text-white text-sm font-medium truncate">{ex.name}</div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-white text-sm font-medium truncate">{ex.displayName || ex.name}</span>
+                          {eq && <EquipBadge eq={eq} small />}
+                          {ex.unilateral && <SABadge small />}
+                        </div>
                         <div className="text-xs mt-0.5 flex flex-wrap gap-1">
                           {ex.primaryMuscles.map(m => (
                             <span key={m} className="px-1.5 py-0.5 rounded-full text-xs" style={{ background: '#22c55e22', color: '#22c55e' }}>

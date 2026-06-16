@@ -50,7 +50,7 @@ function Ticks({ r, cx, cy }) {
 }
 
 // ── RestTimer ──────────────────────────────────────────────────────────────
-const RestTimer = forwardRef(function RestTimer({ onClose, inline = false, voiceMode = 'positive' }, ref) {
+const RestTimer = forwardRef(function RestTimer({ onClose, inline = false, voiceMode = 'positive', onStart }, ref) {
   const [duration,  setDuration]  = useState(60)
   const [remaining, setRemaining] = useState(60)
   const [running,   setRunning]   = useState(false)
@@ -117,7 +117,8 @@ const RestTimer = forwardRef(function RestTimer({ onClose, inline = false, voice
     endTimeRef.current = Date.now() + dur * 1000
     setRunning(true)
     requestNotifPermission()
-  }, [])
+    onStart?.()
+  }, [onStart])
 
   useImperativeHandle(ref, () => ({ start: autoStart }), [autoStart])
 
@@ -132,10 +133,11 @@ const RestTimer = forwardRef(function RestTimer({ onClose, inline = false, voice
         const rem = remainingRef.current === 0 ? durationRef.current : remainingRef.current
         if (remainingRef.current === 0) setRemaining(durationRef.current)
         endTimeRef.current = Date.now() + rem * 1000
+        onStart?.()
       }
       return !prev
     })
-  }, [])
+  }, [onStart])
 
   const reset = useCallback(() => {
     clearInterval(intervalRef.current)

@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { X, Search, Plus } from 'lucide-react'
 import { EXERCISES, MUSCLE_LABELS, inferEquipment, EQUIP_COLORS } from '../data/exercises'
 import { useWorkoutStore } from '../store/workoutStore'
 import { useWgerGif } from '../utils/wgerGif'
+import { EquipBadge, SABadge } from './ExerciseLabel'
 
 // Simple fuzzy match score (lower = better)
 function fuzzyScore(a, b) {
@@ -16,27 +17,6 @@ function fuzzyScore(a, b) {
   let matches = 0
   for (let i = 0; i < Math.min(a.length, b.length); i++) if (a[i] === b[i]) matches++
   return 3 - matches / Math.max(a.length, b.length)
-}
-
-// Equipment badge chip
-function EquipBadge({ eq, small = false }) {
-  const c = EQUIP_COLORS[eq]
-  if (!c) return null
-  return (
-    <span
-      className="flex-shrink-0 font-bold rounded"
-      style={{
-        background: c.bg,
-        color: c.text,
-        border: `1px solid ${c.border}`,
-        fontSize: small ? 9 : 10,
-        padding: small ? '1px 5px' : '2px 6px',
-        letterSpacing: '0.03em',
-      }}
-    >
-      {eq}
-    </span>
-  )
 }
 
 // Create New Exercise inline form
@@ -150,8 +130,9 @@ function ExerciseRow({ ex, isAdded, onSelect, showGif, borderBottom }) {
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-white text-sm font-medium truncate">{ex.name}</span>
+            <span className="text-white text-sm font-medium truncate">{ex.displayName || ex.name}</span>
             {eq && <EquipBadge eq={eq} />}
+            {ex.unilateral && <SABadge />}
           </div>
           <div className="text-xs mt-0.5" style={{ color: '#555' }}>
             {ex.primaryMuscles.map(m => m.replace(/_/g, ' ')).join(', ')}
@@ -168,7 +149,7 @@ function ExerciseRow({ ex, isAdded, onSelect, showGif, borderBottom }) {
 
 const MUSCLE_GROUPS = [
   'Chest','Back','Shoulder','Bicep','Tricep','Quad','Hamstring',
-  'Glute','Abs','Calf','Forearm','Rear Delt','Trap','Kettlebell',
+  'Glute','Abs','Calf','Forearm','Rear Delt','Trap',
 ]
 
 export default function ExerciseSelector({ onSelect, onClose, currentExercises = [] }) {
@@ -177,6 +158,12 @@ export default function ExerciseSelector({ onSelect, onClose, currentExercises =
   const [activeGroup, setActiveGroup] = useState('Chest')
   const [activeEquip, setActiveEquip] = useState(null)
   const [showCreate,  setShowCreate]  = useState(false)
+  const wasSearching = useRef(false)
+
+  useEffect(() => {
+    if (search && !wasSearching.current) store.trackUsage('exerciseSearches')
+    wasSearching.current = !!search
+  }, [search])
 
   const allExercises = useMemo(
     () => [...EXERCISES, ...(store.customExercises || [])],
