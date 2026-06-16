@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, Fragment } from 'react'
 import { Plus, Trash2, ChevronDown, ChevronUp, ArrowUpCircle, X, Pencil, Archive, Edit3, Zap } from 'lucide-react'
 import { useWorkoutStore } from '../store/workoutStore'
 import { SPLIT_LABELS, EXERCISES } from '../data/exercises'
@@ -201,8 +201,7 @@ function SetRow({ set, index, onUpdate, onRemove, lastSessionSet, exerciseHistor
 }
 
 // ── Exercise card ──────────────────────────────────────────────────────────
-function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMoveUp, onRemove, onUpdateNotes, pr, exerciseHistory }) {
-  const [expanded, setExpanded] = useState(true)
+function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMoveUp, onRemove, onUpdateNotes, pr, exerciseHistory, expanded, onToggleExpand }) {
   const [showLastSession, setShowLastSession] = useState(false)
   const [confirmRemove, setConfirmRemove] = useState(false)
   const confirmTimer = useRef(null)
@@ -233,7 +232,7 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
   return (
     <div className="rounded-2xl mb-3 overflow-hidden" style={{ background: '#141414' }}>
       <div className="flex items-center justify-between px-4 py-3">
-        <button className="flex-1 flex items-center gap-2 text-left" onClick={() => setExpanded(e => !e)}>
+        <button className="flex-1 flex items-center gap-2 text-left" onClick={onToggleExpand}>
           <span className="text-white font-semibold text-sm">{exercise.name}</span>
           {isPR && <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#22c55e22', color: '#22c55e' }}>PR!</span>}
           {exercise.sets.length > 0 && <span className="text-xs" style={{ color: '#555' }}>{exercise.sets.length} set{exercise.sets.length > 1 ? 's' : ''}</span>}
@@ -249,7 +248,7 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
             style={{ color: confirmRemove ? '#ef4444' : '#444', background: confirmRemove ? '#ef444418' : 'transparent' }}>
             {confirmRemove ? <span className="text-xs font-bold" style={{ color: '#ef4444' }}>remove?</span> : <X size={18} />}
           </button>
-          <button onClick={() => setExpanded(e => !e)} style={{ color: '#444' }}>
+          <button onClick={onToggleExpand} style={{ color: '#444' }}>
             {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </button>
         </div>
@@ -529,6 +528,7 @@ function WorkoutCard({ workout, onSoftDelete, onArchive, onStartAgain, onEdit })
 function WorkoutEditModal({ workout, onSave, onClose }) {
   const [name, setName]   = useState(workout.name || '')
   const [date, setDate]   = useState(workout.date || '')
+  const [split, setSplit] = useState(workout.split || 'custom')
   const [durationMins, setDurationMins] = useState(
     workout.endTime && workout.startTime
       ? String(Math.round((workout.endTime - workout.startTime) / 60000))
@@ -573,7 +573,7 @@ function WorkoutEditModal({ workout, onSave, onClose }) {
     const endTime = !isNaN(mins) && mins > 0 && workout.startTime
       ? workout.startTime + mins * 60000
       : workout.endTime
-    onSave({ name: name.trim() || null, date, exercises, endTime })
+    onSave({ name: name.trim() || null, date, split, exercises, endTime })
     onClose()
   }
 
@@ -609,6 +609,27 @@ function WorkoutEditModal({ workout, onSave, onClose }) {
               onChange={e => setDurationMins(e.target.value)}
               placeholder="e.g. 45"
               className="w-full px-4 py-3 rounded-xl text-white outline-none" style={{ background: '#141414', fontSize: 16 }} />
+          </div>
+
+          {/* Split / workout type */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-widest mb-2 block" style={{ color: '#555' }}>Workout Type</label>
+            <div className="grid grid-cols-2 gap-2">
+              {[...Object.entries(SPLIT_LABELS), ['custom', 'Custom']].map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setSplit(key)}
+                  className="py-3 rounded-xl text-sm font-semibold"
+                  style={{
+                    background: split === key ? '#22c55e22' : '#141414',
+                    color: split === key ? '#22c55e' : '#888',
+                    border: split === key ? '1px solid #22c55e44' : '1px solid #1e1e1e',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Exercises */}
@@ -822,7 +843,18 @@ export default function WorkoutLogger() {
   const [showSavePrompt,    setShowSavePrompt]    = useState(false)
   const [elapsed,           setElapsed]           = useState(0)
   const [editingWorkout,    setEditingWorkout]    = useState(null)
+  const [expandedExercises, setExpandedExercises] = useState(new Set())
+  const [showLastSplit,     setShowLastSplit]     = useState(false)
   const timerRef = useRef(null)
+
+  const toggleExpanded = useCallback((name) => {
+    setExpandedExercises(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     if (!store.activeWorkout) return
@@ -979,6 +1011,29 @@ export default function WorkoutLogger() {
   // ── Active workout screen ─────────────────────────────────────────────────
   const { activeWorkout } = store
   const workoutTitle = activeWorkout.name || SPLIT_LABELS[activeWorkout.split] || activeWorkout.split
+  const firstExpandedIdx = activeWorkout.exercises.findIndex(ex => expandedExercises.has(ex.name))
+  const lastSameWorkout = activeWorkout.split && activeWorkout.split !== 'custom'
+    ? store.workouts.find(w => w.split === activeWorkout.split)
+    : null
+
+  const renderTimerAndNotes = () => (
+    <>
+      <div className="mt-2 mb-2">
+        <RestTimer ref={timerRef} inline voiceMode={store.voiceMode} />
+      </div>
+      <div className="mb-4 rounded-2xl px-4 py-3" style={{ background: '#0d0d0d', border: '1px solid #2a2a2a' }}>
+        <span className="text-xs font-bold tracking-widest uppercase block mb-2" style={{ color: '#c8b97a', fontFamily: 'Courier New, monospace' }}>WORKOUT NOTES</span>
+        <textarea
+          rows={3}
+          placeholder="Add notes for this workout..."
+          value={activeWorkout.notes || ''}
+          onChange={e => store.updateWorkoutNotes(e.target.value)}
+          className="w-full bg-transparent resize-none text-sm outline-none"
+          style={{ color: '#ccc', caretColor: '#22c55e' }}
+        />
+      </div>
+    </>
+  )
 
   return (
     <>
@@ -994,49 +1049,78 @@ export default function WorkoutLogger() {
         </div>
 
         <div className="flex-1 px-4 pt-4">
+          {/* Last same-split workout reference */}
+          {lastSameWorkout && (
+            <div className="mb-3 rounded-2xl overflow-hidden" style={{ background: '#141414' }}>
+              <button
+                className="w-full flex items-center justify-between px-4 py-3"
+                onClick={() => setShowLastSplit(s => !s)}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#555' }}>
+                    Last {SPLIT_LABELS[activeWorkout.split] || activeWorkout.split}
+                  </span>
+                  <span className="text-xs" style={{ color: '#444' }}>· {lastSameWorkout.date}</span>
+                </div>
+                {showLastSplit ? <ChevronUp size={16} color="#444" /> : <ChevronDown size={16} color="#444" />}
+              </button>
+              {showLastSplit && (
+                <div className="px-4 pb-3" style={{ borderTop: '1px solid #1e1e1e' }}>
+                  {lastSameWorkout.exercises.map(ex => {
+                    const topSet = ex.sets.length > 0
+                      ? ex.sets.reduce((b, s) => Number(s.weight) >= Number(b.weight) ? s : b, ex.sets[0])
+                      : null
+                    return (
+                      <div key={ex.name} className="flex items-center justify-between py-2" style={{ borderBottom: '1px solid #1a1a1a' }}>
+                        <span className="text-white text-sm">{ex.name}</span>
+                        <span className="text-xs" style={{ color: '#555' }}>
+                          {ex.sets.length} set{ex.sets.length !== 1 ? 's' : ''}
+                          {topSet?.weight ? ` · ${topSet.weight === 'BW' ? 'BW' : topSet.weight + ' lbs'}` : ''}
+                          {topSet?.reps ? ` × ${topSet.reps}` : ''}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {activeWorkout.exercises.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-16 text-gray-600">
               <Plus size={40} strokeWidth={1.5} />
               <span className="text-sm">Tap below to add your first exercise</span>
             </div>
           )}
-          {activeWorkout.exercises.map(ex => (
-            <ExerciseCard
-              key={ex.name}
-              exercise={ex}
-              pr={store.getPersonalRecord(ex.name)}
-              exerciseHistory={store.getExerciseHistory(ex.name)}
-              onAddSet={(name, set) => { store.addSet(name, set); timerRef.current?.start() }}
-              onUpdateSet={store.updateSet}
-              onRemoveSet={store.removeSet}
-              onToggleMoveUp={store.toggleReadyToMoveUp}
-              onUpdateNotes={store.updateExerciseNotes}
-              onRemove={store.removeExerciseFromWorkout}
-            />
+
+          {/* Timer at top when nothing is expanded */}
+          {firstExpandedIdx === -1 && renderTimerAndNotes()}
+
+          {/* Exercise cards — timer inserts before the first expanded one */}
+          {activeWorkout.exercises.map((ex, i) => (
+            <Fragment key={ex.name}>
+              {i === firstExpandedIdx && renderTimerAndNotes()}
+              <ExerciseCard
+                exercise={ex}
+                expanded={expandedExercises.has(ex.name)}
+                onToggleExpand={() => toggleExpanded(ex.name)}
+                pr={store.getPersonalRecord(ex.name)}
+                exerciseHistory={store.getExerciseHistory(ex.name)}
+                onAddSet={(name, set) => { store.addSet(name, set); timerRef.current?.start() }}
+                onUpdateSet={store.updateSet}
+                onRemoveSet={store.removeSet}
+                onToggleMoveUp={store.toggleReadyToMoveUp}
+                onUpdateNotes={store.updateExerciseNotes}
+                onRemove={store.removeExerciseFromWorkout}
+              />
+            </Fragment>
           ))}
+
           <button onClick={() => setShowSelector(true)}
             className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 font-semibold text-sm"
             style={{ background: '#141414', color: '#22c55e', border: '1px dashed #1e1e1e' }}>
             <Plus size={18} /> Add Exercise
           </button>
-
-          {/* Rest timer — compact, at bottom */}
-          <div className="mt-4 mb-2">
-            <RestTimer ref={timerRef} inline voiceMode={store.voiceMode} />
-          </div>
-
-          {/* Workout notes */}
-          <div className="mb-4 rounded-2xl px-4 py-3" style={{ background: '#0d0d0d', border: '1px solid #2a2a2a' }}>
-            <span className="text-xs font-bold tracking-widest uppercase block mb-2" style={{ color: '#c8b97a', fontFamily: 'Courier New, monospace' }}>WORKOUT NOTES</span>
-            <textarea
-              rows={3}
-              placeholder="Add notes for this workout..."
-              value={store.activeWorkout.notes || ''}
-              onChange={e => store.updateWorkoutNotes(e.target.value)}
-              className="w-full bg-transparent resize-none text-sm outline-none"
-              style={{ color: '#ccc', caretColor: '#22c55e' }}
-            />
-          </div>
         </div>
       </div>
 
@@ -1051,7 +1135,6 @@ export default function WorkoutLogger() {
               <button onClick={() => setShowFinishConfirm(false)} className="flex-1 py-3 rounded-2xl font-semibold text-sm" style={{ background: '#2a2a2a', color: '#888' }}>Cancel</button>
               <button onClick={handleFinish} className="flex-1 py-3 rounded-2xl font-semibold text-sm text-black" style={{ background: '#22c55e' }}>Save Workout</button>
             </div>
-            <button onClick={() => { store.discardWorkout(); setShowFinishConfirm(false) }} className="text-sm text-center py-1" style={{ color: '#ef4444' }}>Discard workout</button>
           </div>
         </div>
       )}

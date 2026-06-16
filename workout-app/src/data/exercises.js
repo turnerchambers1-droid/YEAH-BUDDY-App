@@ -181,20 +181,44 @@ export const EXERCISES = [
   { name: 'Smith Calf Raise',           split: 'LegsAbs',   muscleGroup: 'Calf',      primaryMuscles: ['calves'],     secondaryMuscles: [] },
 
   // ── ABS / ADDUCTORS ────────────────────────────────────────────────────────
-  { name: 'Abduction (Outward)',         split: 'LegsAbs',   muscleGroup: 'Abs',       primaryMuscles: ['abductors'],  secondaryMuscles: ['glutes'] },
-  { name: 'Adduction (Inward)',          split: 'LegsAbs',   muscleGroup: 'Abs',       primaryMuscles: ['adductors'],  secondaryMuscles: [] },
-  { name: 'Bench Crunch',               split: 'LegsAbs',   muscleGroup: 'Abs',       primaryMuscles: ['abs'],        secondaryMuscles: [] },
-  { name: 'Leg Raise',                  split: 'LegsAbs',   muscleGroup: 'Abs',       primaryMuscles: ['abs'],        secondaryMuscles: [] },
-  { name: 'Cable Crunch',               split: 'LegsAbs',   muscleGroup: 'Abs',       primaryMuscles: ['abs'],        secondaryMuscles: [] },
+  { name: 'Abduction (Outward)',         split: 'LegsAbs',    muscleGroup: 'Abs',         primaryMuscles: ['abductors'],             secondaryMuscles: ['glutes'] },
+  { name: 'Adduction (Inward)',          split: 'LegsAbs',    muscleGroup: 'Abs',         primaryMuscles: ['adductors'],             secondaryMuscles: [] },
+  { name: 'Bench Crunch',               split: 'LegsAbs',    muscleGroup: 'Abs',         primaryMuscles: ['abs'],                   secondaryMuscles: [] },
+  { name: 'Leg Raise',                  split: 'LegsAbs',    muscleGroup: 'Abs',         primaryMuscles: ['abs'],                   secondaryMuscles: [] },
+  { name: 'Cable Crunch',               split: 'LegsAbs',    muscleGroup: 'Abs',         primaryMuscles: ['abs'],                   secondaryMuscles: [] },
+
+  // ── KETTLEBELL ─────────────────────────────────────────────────────────────
+  { name: 'KB Swing',                   split: 'Kettlebell', muscleGroup: 'KB Full Body',primaryMuscles: ['glutes','hamstrings'],    secondaryMuscles: ['lower_back','traps'] },
+  { name: 'KB Turkish Get Up',          split: 'Kettlebell', muscleGroup: 'KB Full Body',primaryMuscles: ['front_delt','abs'],       secondaryMuscles: ['glutes','triceps'] },
+  { name: 'KB Clean',                   split: 'Kettlebell', muscleGroup: 'KB Full Body',primaryMuscles: ['glutes','hamstrings'],    secondaryMuscles: ['traps','biceps','lower_back'] },
+  { name: 'KB Snatch',                  split: 'Kettlebell', muscleGroup: 'KB Full Body',primaryMuscles: ['glutes','hamstrings'],    secondaryMuscles: ['traps','front_delt','lower_back'] },
+  { name: 'KB Clean & Press',           split: 'Kettlebell', muscleGroup: 'KB Full Body',primaryMuscles: ['glutes','front_delt'],    secondaryMuscles: ['traps','triceps','lower_back'] },
+  { name: 'KB Goblet Squat',            split: 'Kettlebell', muscleGroup: 'KB Legs',     primaryMuscles: ['quads'],                 secondaryMuscles: ['glutes','hamstrings'] },
+  { name: 'KB Deadlift',                split: 'Kettlebell', muscleGroup: 'KB Legs',     primaryMuscles: ['hamstrings','glutes'],    secondaryMuscles: ['lower_back','traps'] },
+  { name: 'KB Front Squat',             split: 'Kettlebell', muscleGroup: 'KB Legs',     primaryMuscles: ['quads'],                 secondaryMuscles: ['glutes','front_delt'] },
+  { name: 'KB Lunge',                   split: 'Kettlebell', muscleGroup: 'KB Legs',     primaryMuscles: ['quads'],                 secondaryMuscles: ['glutes','hamstrings'] },
+  { name: 'KB RDL',                     split: 'Kettlebell', muscleGroup: 'KB Legs',     primaryMuscles: ['hamstrings'],            secondaryMuscles: ['glutes','lower_back'] },
+  { name: 'KB Press',                   split: 'Kettlebell', muscleGroup: 'KB Shoulder', primaryMuscles: ['front_delt'],            secondaryMuscles: ['side_delt','triceps'] },
+  { name: 'KB Push Press',              split: 'Kettlebell', muscleGroup: 'KB Shoulder', primaryMuscles: ['front_delt'],            secondaryMuscles: ['side_delt','triceps','quads'] },
+  { name: 'KB Halo',                    split: 'Kettlebell', muscleGroup: 'KB Shoulder', primaryMuscles: ['side_delt'],             secondaryMuscles: ['front_delt','traps'] },
+  { name: 'KB Windmill',                split: 'Kettlebell', muscleGroup: 'KB Shoulder', primaryMuscles: ['front_delt'],            secondaryMuscles: ['abs','side_delt','glutes'] },
+  { name: 'KB Row',                     split: 'Kettlebell', muscleGroup: 'KB Back',     primaryMuscles: ['mid_back'],              secondaryMuscles: ['lats','biceps','rear_delt'] },
+  { name: 'KB Lat Pullover',            split: 'Kettlebell', muscleGroup: 'KB Back',     primaryMuscles: ['lats'],                  secondaryMuscles: ['chest'] },
+  { name: 'KB Crush Curl',              split: 'Kettlebell', muscleGroup: 'KB Arms',     primaryMuscles: ['biceps'],                secondaryMuscles: ['forearms'] },
+  { name: 'KB Tricep Kickback',         split: 'Kettlebell', muscleGroup: 'KB Arms',     primaryMuscles: ['triceps'],               secondaryMuscles: [] },
+  { name: 'KB Farmer Carry',            split: 'Kettlebell', muscleGroup: 'KB Cardio',   primaryMuscles: ['traps','forearms'],       secondaryMuscles: ['glutes','abs'] },
+  { name: 'KB Around the World',        split: 'Kettlebell', muscleGroup: 'KB Cardio',   primaryMuscles: ['abs'],                   secondaryMuscles: ['side_delt','front_delt'] },
+  { name: 'KB Figure Eight',            split: 'Kettlebell', muscleGroup: 'KB Cardio',   primaryMuscles: ['abs'],                   secondaryMuscles: ['quads','glutes'] },
 ]
 
-export const SPLITS = ['ChestBi', 'BackTri', 'Shoulders', 'LegsAbs']
+export const SPLITS = ['ChestBi', 'BackTri', 'Shoulders', 'LegsAbs', 'Kettlebell']
 
 export const SPLIT_LABELS = {
-  ChestBi:   'Chest & Bi',
-  BackTri:   'Back & Tri',
-  Shoulders: 'Shoulders',
-  LegsAbs:   'Legs & Abs',
+  ChestBi:    'Chest & Bi',
+  BackTri:    'Back & Tri',
+  Shoulders:  'Shoulders',
+  LegsAbs:    'Legs & Abs',
+  Kettlebell: 'Kettlebell',
 }
 
 export function getExerciseByName(name) {

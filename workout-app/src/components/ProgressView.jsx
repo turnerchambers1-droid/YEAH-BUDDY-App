@@ -211,6 +211,12 @@ function WorkoutSessionCard({ workout }) {
           {workout.exercises.map(ex => (
             <WorkoutExerciseRow key={ex.name} exercise={ex} />
           ))}
+          {workout.notes ? (
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid #1e1e1e' }}>
+              <div className="text-xs font-bold uppercase tracking-widest mb-1.5" style={{ color: '#555' }}>Notes</div>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: '#888' }}>{workout.notes}</p>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

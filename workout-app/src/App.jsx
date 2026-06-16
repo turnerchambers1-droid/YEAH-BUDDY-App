@@ -307,7 +307,9 @@ export default function App() {
   return (
     <div className="relative" style={{ minHeight: '100dvh', background: '#0a0a0a' }}>
       <div style={{ paddingBottom: 72 }}>
-        {tab === 'workout'  && <WorkoutLogger />}
+        <div style={{ display: tab === 'workout' ? 'block' : 'none' }}>
+          <WorkoutLogger />
+        </div>
         {tab === 'library'  && <LibraryView />}
         {tab === 'progress' && <ProgressView />}
         {tab === 'social'   && <SocialView />}
