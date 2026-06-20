@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react'
-import { Search, X, TrendingUp, Calendar, Flame, ChevronRight, ChevronDown, ChevronUp, Dumbbell, Copy } from 'lucide-react'
+import { Search, X, TrendingUp, Calendar, Flame, ChevronRight, ChevronDown, ChevronUp, Dumbbell, Copy, RotateCcw } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
 import { useWorkoutStore } from '../store/workoutStore'
 import { EXERCISES, MUSCLE_LABELS, SPLIT_LABELS } from '../data/exercises'
 import { useWgerGif } from '../utils/wgerGif'
+import { readEvents, clearEvents, EV } from '../utils/analytics'
 
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
@@ -237,183 +238,287 @@ function getStreak(dates) {
   return streak
 }
 
-// ── Usage Insights Panel ─────────────────────────────────────────────────────
-function InsightsView({ workouts }) {
-  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+// ── Developer UX Dashboard ───────────────────────────────────────────────────
+function DevDashboard() {
+  const [events, setEvents] = useState(() => readEvents())
+  const [confirmClear, setConfirmClear] = useState(false)
 
-  const stats = useMemo(() => {
-    if (!workouts.length) return null
+  const handleClear = () => {
+    clearEvents()
+    setEvents([])
+    setConfirmClear(false)
+  }
 
-    // Day of week frequency
-    const dayFreq = [0, 0, 0, 0, 0, 0, 0]
-    workouts.forEach(w => {
-      const d = new Date(w.date + 'T12:00:00').getDay()
-      dayFreq[d]++
-    })
-    const bestDayIdx = dayFreq.indexOf(Math.max(...dayFreq))
+  const d = useMemo(() => {
+    if (!events.length) return null
 
-    // Most used exercises
-    const exFreq = {}
-    workouts.forEach(w => w.exercises.forEach(ex => {
-      exFreq[ex.name] = (exFreq[ex.name] || 0) + 1
-    }))
-    const topExercises = Object.entries(exFreq).sort((a, b) => b[1] - a[1]).slice(0, 5)
+    const by = (type) => events.filter(e => e.type === type)
+    const countBy = (type) => by(type).length
 
-    // Muscle group frequency by sets
-    const muscleFreq = {}
-    workouts.forEach(w => w.exercises.forEach(ex => {
-      const exData = EXERCISES.find(e => e.name === ex.name)
-      if (exData) {
-        exData.primaryMuscles.forEach(m => {
-          muscleFreq[m] = (muscleFreq[m] || 0) + ex.sets.length
-        })
-      }
-    }))
-    const topMuscles = Object.entries(muscleFreq)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
-      .map(([m, count]) => ({ muscle: MUSCLE_LABELS[m] || m, count }))
-    const maxMuscleCount = topMuscles[0]?.count || 1
+    const started   = countBy(EV.WORKOUT_STARTED)
+    const finished  = countBy(EV.WORKOUT_FINISHED)
+    const cancelled = countBy(EV.FINISH_CANCELLED)
+    const edited    = countBy(EV.WORKOUT_EDITED)
 
-    // All tracked muscles — find any never trained
-    const allMuscles = Object.keys(MUSCLE_LABELS)
-    const neglectedMuscles = allMuscles
-      .filter(m => !muscleFreq[m])
-      .map(m => MUSCLE_LABELS[m])
-      .slice(0, 3)
+    // Tab navigation frequency
+    const tabVisits = by(EV.TAB_VISIT)
+    const tabFreq = tabVisits.reduce((acc, e) => { acc[e.tab] = (acc[e.tab] || 0) + 1; return acc }, {})
+    const tabTotal = tabVisits.length || 1
+    const tabs = Object.entries(tabFreq).sort((a, b) => b[1] - a[1])
 
-    // Average workout stats
-    const totalEx = workouts.reduce((a, w) => a + w.exercises.length, 0)
-    const totalSets = workouts.reduce((a, w) => a + w.exercises.reduce((s, e) => s + e.sets.length, 0), 0)
-    const durWorkouts = workouts.filter(w => w.endTime && w.startTime)
-    const avgDuration = durWorkouts.length
-      ? Math.round(durWorkouts.reduce((a, w) => a + (w.endTime - w.startTime) / 60000, 0) / durWorkouts.length)
-      : null
+    // Selector efficiency: opens vs exercises added
+    const selectorOpens  = countBy(EV.SELECTOR_OPENED)
+    const exAdded        = countBy(EV.EXERCISE_ADDED)
+    const exRemoved      = countBy(EV.EXERCISE_REMOVED)
+    const exPerOpen      = selectorOpens > 0 ? (exAdded / selectorOpens).toFixed(1) : '—'
+    const removalRate    = exAdded > 0 ? Math.round((exRemoved / exAdded) * 100) : 0
 
-    // Days since last workout
-    const daysSinceLast = workouts[0]
-      ? Math.round((Date.now() - new Date(workouts[0].date + 'T12:00:00')) / 86400000)
-      : null
+    // Top removed exercises (UX friction — added then removed)
+    const removedFreq = by(EV.EXERCISE_REMOVED).reduce((acc, e) => {
+      if (e.name) acc[e.name] = (acc[e.name] || 0) + 1
+      return acc
+    }, {})
+    const topRemoved = Object.entries(removedFreq).sort((a, b) => b[1] - a[1]).slice(0, 3)
 
-    // Split frequency
-    const splitFreq = {}
-    workouts.forEach(w => { if (w.split && w.split !== 'custom') splitFreq[w.split] = (splitFreq[w.split] || 0) + 1 })
-    const topSplit = Object.entries(splitFreq).sort((a, b) => b[1] - a[1])[0]
+    // Feature adoption (relative to finished workouts)
+    const timerUses   = countBy(EV.TIMER_TRIGGERED)
+    const notesUses   = countBy(EV.NOTES_USED)
+    const moveUpUses  = countBy(EV.MOVE_UP_TOGGLED)
+    const timerPct    = finished > 0 ? Math.round((timerUses  / finished) * 100) : 0
+    const notesPct    = finished > 0 ? Math.round((notesUses  / finished) * 100) : 0
 
-    // Suggestions
+    // Start method breakdown
+    const startMethods = by(EV.WORKOUT_STARTED).reduce((acc, e) => {
+      const via = e.via || 'unknown'
+      acc[via] = (acc[via] || 0) + 1
+      return acc
+    }, {})
+
+    // Time of day heatmap (workout starts)
+    const hourFreq = new Array(24).fill(0)
+    by(EV.WORKOUT_STARTED).forEach(e => { hourFreq[new Date(e.ts).getHours()]++ })
+    const peakHour = hourFreq.indexOf(Math.max(...hourFreq))
+
+    // Session duration from finished events
+    const durations = by(EV.WORKOUT_FINISHED).filter(e => e.duration > 0).map(e => e.duration)
+    const avgDuration = durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null
+
+    // Finish rate
+    const finishRate = started > 0 ? Math.round((finished / started) * 100) : 0
+
+    // Auto UX suggestions for the developer
     const suggestions = []
-    if (daysSinceLast !== null && daysSinceLast > 3) suggestions.push(`${daysSinceLast} days since your last workout — time to get back in there 💪`)
-    if (neglectedMuscles.length > 0 && workouts.length >= 5) suggestions.push(`Untrained muscle groups: ${neglectedMuscles.join(', ')}`)
-    if (topExercises.length > 0) suggestions.push(`Your go-to move is "${topExercises[0][0]}" — logged ${topExercises[0][1]}x`)
-    if (topSplit) suggestions.push(`You focus most on ${SPLIT_LABELS[topSplit[0]] || topSplit[0]} (${topSplit[1]} sessions)`)
-    if (avgDuration && avgDuration > 90) suggestions.push(`Avg workout is ${avgDuration} min — consider trimming rest time to stay under 75 min`)
-    if (avgDuration && avgDuration < 30 && workouts.length >= 3) suggestions.push(`Short sessions avg ${avgDuration} min — try adding 1–2 more exercises per session`)
+    if (exPerOpen !== '—' && parseFloat(exPerOpen) < 1.5 && selectorOpens >= 5)
+      suggestions.push(`Exercise selector opens ${selectorOpens}x but only adds ${exPerOpen} exercises per open on avg — consider a "recents" quick-pick to reduce friction`)
+    if (finishRate < 70 && started >= 3)
+      suggestions.push(`Only ${finishRate}% of started workouts are finished — the other ${100 - finishRate}% may indicate UX friction or user bailing on the finish flow`)
+    if (cancelled >= 2)
+      suggestions.push(`Finish confirm was cancelled ${cancelled}x — the 2-tap finish flow may be adding friction; consider a single-tap finish with undo`)
+    if (timerPct < 30 && finished >= 5)
+      suggestions.push(`Timer triggered in only ${timerPct}% of workouts — it might not be prominent enough or users are skipping rest logging`)
+    if (notesPct < 20 && finished >= 5)
+      suggestions.push(`Notes used in ${notesPct}% of workouts — consider inline cue prompts or making the notes field feel more inviting`)
+    if (topRemoved.length > 0 && topRemoved[0][1] >= 2)
+      suggestions.push(`"${topRemoved[0][0]}" removed ${topRemoved[0][1]}x — possible naming confusion or accidental selection; check selector UX for this exercise`)
+    if (removalRate > 20 && exAdded >= 5)
+      suggestions.push(`${removalRate}% of added exercises get removed — high churn might mean the exercise selector is hard to browse, or users change their mind mid-workout often`)
+    if (edited >= 3)
+      suggestions.push(`Workouts edited ${edited}x — check if users are correcting weights/reps post-workout because the in-workout logging UX is cumbersome`)
+    if (tabs.length > 0 && tabs[tabs.length - 1]?.[1] / tabTotal < 0.05)
+      suggestions.push(`"${tabs[tabs.length - 1]?.[0]}" tab is visited least (${tabs[tabs.length - 1]?.[1]}x) — consider whether it deserves prime nav placement`)
+
+    // Oldest tracked event age
+    const oldest = events[0]?.ts
+    const trackingAge = oldest ? Math.round((Date.now() - oldest) / 86400000) : 0
 
     return {
-      dayFreq, bestDayIdx, topExercises, topMuscles, maxMuscleCount,
-      neglectedMuscles, avgExercises: (totalEx / workouts.length).toFixed(1),
-      avgSets: (totalSets / workouts.length).toFixed(1), avgDuration,
-      daysSinceLast, suggestions,
+      total: events.length, trackingAge,
+      started, finished, cancelled, edited, finishRate,
+      tabs, tabTotal,
+      selectorOpens, exAdded, exRemoved, exPerOpen, removalRate,
+      topRemoved,
+      timerUses, timerPct, notesPct, moveUpUses,
+      startMethods,
+      hourFreq, peakHour,
+      avgDuration,
+      suggestions,
     }
-  }, [workouts])
+  }, [events])
 
-  if (!workouts.length || !stats) {
+  const HOUR_LABEL = (h) => h === 0 ? '12a' : h < 12 ? `${h}a` : h === 12 ? '12p' : `${h - 12}p`
+  const START_METHOD_LABELS = { split_grid: 'Split tile', custom_modal: 'Custom modal', home_tile: 'Saved tile', start_again: 'Start again', unknown: 'Unknown' }
+
+  if (!events.length) {
     return (
       <div className="px-4 py-16 flex flex-col items-center gap-3" style={{ color: '#555' }}>
         <TrendingUp size={36} strokeWidth={1.5} />
-        <span className="text-sm text-center">Log at least one workout to see your usage insights</span>
+        <span className="text-sm text-center">Start using the app — events will appear here automatically.</span>
+        <span className="text-xs text-center" style={{ color: '#333', maxWidth: 260 }}>Tracks tab visits, workout starts/finishes, exercise adds/removes, timer use, and more. Stored locally on this device.</span>
       </div>
     )
   }
 
-  const { dayFreq, bestDayIdx, topExercises, topMuscles, maxMuscleCount, avgExercises, avgSets, avgDuration, suggestions } = stats
-  const maxDayCount = Math.max(...dayFreq, 1)
+  const StatPill = ({ label, value, accent }) => (
+    <div className="rounded-2xl p-3 text-center" style={{ background: '#141414' }}>
+      <div className="font-bold text-lg" style={{ color: accent || '#fff', fontFamily: 'monospace' }}>{value}</div>
+      <div className="text-xs mt-0.5 leading-tight" style={{ color: '#555' }}>{label}</div>
+    </div>
+  )
+
+  const Section = ({ title, children }) => (
+    <div className="rounded-2xl p-4" style={{ background: '#141414' }}>
+      <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#555' }}>{title}</div>
+      {children}
+    </div>
+  )
+
+  const Bar = ({ pct, color = '#22c55e', dim }) => (
+    <div className="flex-1 rounded-full h-1.5" style={{ background: '#1e1e1e' }}>
+      <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, background: dim ? '#22c55e44' : color }} />
+    </div>
+  )
 
   return (
-    <div className="px-4 flex flex-col gap-4 pb-4">
-      {/* Avg stats row */}
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: 'Avg Exercises', value: avgExercises },
-          { label: 'Avg Sets', value: avgSets },
-          { label: 'Avg Duration', value: avgDuration ? `${avgDuration}m` : '—' },
-        ].map(s => (
-          <div key={s.label} className="rounded-2xl p-3 text-center" style={{ background: '#141414' }}>
-            <div className="font-bold text-white text-lg">{s.value}</div>
-            <div className="text-xs mt-0.5" style={{ color: '#555' }}>{s.label}</div>
-          </div>
-        ))}
+    <div className="px-4 flex flex-col gap-3 pb-4">
+      {/* Header meta */}
+      <div className="flex items-center justify-between px-1">
+        <span className="text-xs" style={{ color: '#444' }}>{d.total} events · {d.trackingAge}d of data</span>
+        {!confirmClear
+          ? <button onClick={() => setConfirmClear(true)} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg" style={{ color: '#555', background: '#141414' }}>
+              <RotateCcw size={11} /> Reset
+            </button>
+          : <div className="flex items-center gap-2">
+              <span className="text-xs" style={{ color: '#ef4444' }}>Clear all events?</span>
+              <button onClick={() => setConfirmClear(false)} className="text-xs px-2 py-1 rounded-lg" style={{ color: '#888', background: '#2a2a2a' }}>No</button>
+              <button onClick={handleClear} className="text-xs px-2 py-1 rounded-lg" style={{ color: '#ef4444', background: '#ef444422' }}>Yes</button>
+            </div>
+        }
       </div>
 
-      {/* Day of week heatmap */}
-      <div className="rounded-2xl p-4" style={{ background: '#141414' }}>
-        <div className="text-sm font-bold text-white mb-3">Workout Days</div>
-        <div className="flex gap-1.5 items-end" style={{ height: 64 }}>
-          {DAY_NAMES.map((day, i) => {
-            const pct = dayFreq[i] / maxDayCount
-            const isTop = i === bestDayIdx && dayFreq[i] > 0
+      {/* Workout funnel */}
+      <Section title="Workout Funnel">
+        <div className="grid grid-cols-4 gap-2">
+          <StatPill label="Started" value={d.started} />
+          <StatPill label="Finished" value={d.finished} accent="#22c55e" />
+          <StatPill label="Finish %" value={`${d.finishRate}%`} accent={d.finishRate >= 80 ? '#22c55e' : d.finishRate >= 60 ? '#f59e0b' : '#ef4444'} />
+          <StatPill label="Cancelled" value={d.cancelled} accent={d.cancelled > 0 ? '#f59e0b' : '#555'} />
+        </div>
+        {d.avgDuration && (
+          <div className="mt-3 text-xs" style={{ color: '#555' }}>Avg session duration: <span style={{ color: '#fff', fontFamily: 'monospace' }}>{d.avgDuration} min</span></div>
+        )}
+      </Section>
+
+      {/* Exercise selector efficiency */}
+      <Section title="Exercise Selector Efficiency">
+        <div className="grid grid-cols-4 gap-2 mb-3">
+          <StatPill label="Opens" value={d.selectorOpens} />
+          <StatPill label="Added" value={d.exAdded} accent="#22c55e" />
+          <StatPill label="Per open" value={d.exPerOpen} accent={parseFloat(d.exPerOpen) >= 1.5 ? '#22c55e' : '#f59e0b'} />
+          <StatPill label="Removed %" value={`${d.removalRate}%`} accent={d.removalRate <= 10 ? '#22c55e' : d.removalRate <= 25 ? '#f59e0b' : '#ef4444'} />
+        </div>
+        {d.topRemoved.length > 0 && (
+          <div>
+            <div className="text-xs mb-1.5" style={{ color: '#444' }}>Top removed exercises (friction signal)</div>
+            {d.topRemoved.map(([name, count]) => (
+              <div key={name} className="flex items-center justify-between py-1">
+                <span className="text-sm text-white truncate flex-1">{name}</span>
+                <span className="text-xs ml-2 font-bold px-2 py-0.5 rounded-full" style={{ background: '#ef444422', color: '#ef4444' }}>{count}x removed</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      {/* Feature adoption */}
+      <Section title="Feature Adoption">
+        {[
+          { label: 'Timer triggered per workout', pct: d.timerPct, value: `${d.timerPct}%`, raw: `${d.timerUses}x` },
+          { label: 'Workouts with notes', pct: d.notesPct, value: `${d.notesPct}%`, raw: `${d.notesPct > 0 ? '↑' : '—'}` },
+          { label: 'Ready-to-move-up used', pct: null, value: `${d.moveUpUses}x`, raw: 'total' },
+          { label: 'Past workouts edited', pct: null, value: `${d.edited}x`, raw: 'total' },
+        ].map(r => (
+          <div key={r.label} className="flex items-center gap-3 py-1.5">
+            <div className="flex-1 min-w-0">
+              <div className="text-sm text-white">{r.label}</div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {r.pct !== null && <Bar pct={r.pct} dim={r.pct < 30} />}
+              <span className="text-xs font-bold w-10 text-right" style={{ color: '#888', fontFamily: 'monospace' }}>{r.value}</span>
+            </div>
+          </div>
+        ))}
+      </Section>
+
+      {/* Tab navigation */}
+      {d.tabs.length > 0 && (
+        <Section title="Tab Navigation">
+          {d.tabs.map(([tab, count]) => (
+            <div key={tab} className="flex items-center gap-3 py-1.5">
+              <span className="text-sm text-white w-24 flex-shrink-0 capitalize">{tab}</span>
+              <div className="flex-1 rounded-full h-1.5" style={{ background: '#1e1e1e' }}>
+                <div className="h-full rounded-full" style={{ width: `${(count / d.tabTotal) * 100}%`, background: '#22c55e' }} />
+              </div>
+              <span className="text-xs font-bold w-12 text-right" style={{ color: '#888', fontFamily: 'monospace' }}>{count}x · {Math.round((count / d.tabTotal) * 100)}%</span>
+            </div>
+          ))}
+        </Section>
+      )}
+
+      {/* Start method breakdown */}
+      {Object.keys(d.startMethods).length > 0 && (
+        <Section title="How Workouts Are Started">
+          {Object.entries(d.startMethods).sort((a, b) => b[1] - a[1]).map(([via, count]) => (
+            <div key={via} className="flex items-center gap-3 py-1.5">
+              <span className="text-sm text-white flex-1">{START_METHOD_LABELS[via] || via}</span>
+              <div className="flex items-center gap-2">
+                <div className="w-16 rounded-full h-1.5" style={{ background: '#1e1e1e' }}>
+                  <div className="h-full rounded-full" style={{ width: `${(count / d.started) * 100}%`, background: '#22c55e' }} />
+                </div>
+                <span className="text-xs font-bold w-6 text-right" style={{ color: '#888', fontFamily: 'monospace' }}>{count}</span>
+              </div>
+            </div>
+          ))}
+        </Section>
+      )}
+
+      {/* Time-of-day heatmap */}
+      <Section title="Time of Day — Workout Starts">
+        <div className="flex items-end gap-0.5" style={{ height: 48 }}>
+          {d.hourFreq.map((count, h) => {
+            const max = Math.max(...d.hourFreq, 1)
+            const isActive = count > 0
+            const isPeak = h === d.peakHour && count > 0
             return (
-              <div key={day} className="flex-1 flex flex-col items-center gap-1">
-                <div
-                  className="w-full rounded-lg transition-all"
-                  style={{
-                    height: `${Math.max(pct * 48, dayFreq[i] > 0 ? 6 : 2)}px`,
-                    background: isTop ? '#22c55e' : dayFreq[i] > 0 ? '#22c55e66' : '#1e1e1e',
-                    minHeight: 2,
-                  }}
-                />
-                <span className="text-xs" style={{ color: isTop ? '#22c55e' : '#555', fontSize: 9, fontWeight: isTop ? 700 : 400 }}>{day}</span>
+              <div key={h} className="flex-1 flex flex-col items-center gap-0.5">
+                <div className="w-full rounded-sm"
+                  style={{ height: `${Math.max((count / max) * 40, isActive ? 4 : 1)}px`, background: isPeak ? '#22c55e' : isActive ? '#22c55e55' : '#1e1e1e' }} />
               </div>
             )
           })}
         </div>
-        {dayFreq[bestDayIdx] > 0 && (
-          <div className="text-xs mt-2" style={{ color: '#555' }}>Best day: <span style={{ color: '#22c55e' }}>{DAY_NAMES[bestDayIdx]}</span> ({dayFreq[bestDayIdx]} sessions)</div>
+        <div className="flex justify-between mt-1">
+          {[0, 6, 12, 18, 23].map(h => (
+            <span key={h} className="text-xs" style={{ color: '#444', fontSize: 9 }}>{HOUR_LABEL(h)}</span>
+          ))}
+        </div>
+        {d.started > 0 && (
+          <div className="text-xs mt-2" style={{ color: '#555' }}>Peak time: <span style={{ color: '#22c55e' }}>{HOUR_LABEL(d.peakHour)}</span></div>
         )}
-      </div>
+      </Section>
 
-      {/* Top exercises */}
-      {topExercises.length > 0 && (
-        <div className="rounded-2xl p-4" style={{ background: '#141414' }}>
-          <div className="text-sm font-bold text-white mb-3">Most-Used Exercises</div>
-          {topExercises.map(([name, count], i) => (
-            <div key={name} className="flex items-center gap-3 py-1.5">
-              <span className="text-xs font-bold w-4" style={{ color: i === 0 ? '#22c55e' : '#555' }}>#{i + 1}</span>
-              <span className="flex-1 text-white text-sm truncate">{name}</span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#2a2a2a', color: '#888' }}>{count}x</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Muscle frequency */}
-      {topMuscles.length > 0 && (
-        <div className="rounded-2xl p-4" style={{ background: '#141414' }}>
-          <div className="text-sm font-bold text-white mb-3">Most Trained Muscles</div>
-          {topMuscles.map(({ muscle, count }) => (
-            <div key={muscle} className="flex items-center gap-3 py-1">
-              <span className="text-sm text-white w-24 flex-shrink-0">{muscle}</span>
-              <div className="flex-1 rounded-full h-2" style={{ background: '#1e1e1e' }}>
-                <div className="h-full rounded-full" style={{ width: `${(count / maxMuscleCount) * 100}%`, background: '#22c55e' }} />
-              </div>
-              <span className="text-xs w-8 text-right" style={{ color: '#555' }}>{count}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Suggestions */}
-      {suggestions.length > 0 && (
-        <div className="rounded-2xl p-4" style={{ background: '#141414' }}>
-          <div className="text-sm font-bold text-white mb-3">Insights & Tips</div>
-          {suggestions.map((s, i) => (
-            <div key={i} className="flex gap-3 py-2" style={{ borderBottom: i < suggestions.length - 1 ? '1px solid #1e1e1e' : 'none' }}>
-              <span style={{ color: '#22c55e', fontSize: 16 }}>→</span>
+      {/* Dev suggestions */}
+      {d.suggestions.length > 0 && (
+        <Section title="UX Improvement Signals">
+          {d.suggestions.map((s, i) => (
+            <div key={i} className="flex gap-3 py-2.5" style={{ borderBottom: i < d.suggestions.length - 1 ? '1px solid #1e1e1e' : 'none' }}>
+              <span className="text-xs mt-0.5 flex-shrink-0" style={{ color: '#f59e0b' }}>⚠</span>
               <span className="text-sm leading-relaxed" style={{ color: '#aaa' }}>{s}</span>
             </div>
           ))}
-        </div>
+        </Section>
       )}
+
+      <div className="text-xs text-center pb-2" style={{ color: '#2a2a2a' }}>Stored locally · only on this device</div>
     </div>
   )
 }

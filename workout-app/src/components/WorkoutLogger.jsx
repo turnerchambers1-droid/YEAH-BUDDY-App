@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, Fragment } from 'react'
+import { track, EV } from '../utils/analytics'
 import { Plus, Trash2, ChevronDown, ChevronUp, ArrowUpCircle, X, Pencil, Archive, Edit3, Zap } from 'lucide-react'
 import { useWorkoutStore } from '../store/workoutStore'
 import { SPLIT_LABELS, EXERCISES, parseExerciseDisplay } from '../data/exercises'
@@ -933,6 +934,7 @@ export default function WorkoutLogger() {
   }
 
   const handleStartCustom = (name, exerciseNames, mode) => {
+    track(EV.WORKOUT_STARTED, { split: 'custom', via: 'custom_modal', mode, preloaded: exerciseNames?.length || 0 })
     store.startWorkout('custom', name || null)
     if (exerciseNames && exerciseNames.length > 0) {
       exerciseNames.forEach(ex => store.addExerciseToWorkout(ex))
@@ -941,24 +943,38 @@ export default function WorkoutLogger() {
   }
 
   const handleStartHomeTile = (tile) => {
+    track(EV.WORKOUT_STARTED, { split: 'custom', via: 'home_tile', name: tile.name })
     store.startWorkout('custom', tile.name)
     tile.exercises.forEach(ex => store.addExerciseToWorkout(ex))
   }
 
   const handleStartAgain = (workout) => {
+    track(EV.WORKOUT_STARTED, { split: workout.split, via: 'start_again' })
     store.startWorkout(workout.split, workout.name)
     workout.exercises.forEach(ex => store.addExerciseToWorkout(ex.name))
   }
 
   const handleFinish = () => {
+    const aw = store.activeWorkout
+    if (aw) {
+      track(EV.WORKOUT_FINISHED, {
+        split: aw.split,
+        exercises: aw.exercises?.length || 0,
+        sets: (aw.exercises || []).reduce((s, e) => s + e.sets.length, 0),
+        duration: aw.startTime ? Math.round((Date.now() - aw.startTime) / 60000) : null,
+        hasNotes: !!(aw.notes?.trim()),
+      })
+    }
     store.finishWorkout()
     setShowFinishConfirm(false)
-    // If it was a custom/unnamed workout, prompt to save
     const wasCustom = store.activeWorkout?.split === 'custom'
     if (wasCustom) setShowSavePrompt(true)
   }
 
-  const handleEditWorkout = (workout) => setEditingWorkout(workout)
+  const handleEditWorkout = (workout) => {
+    track(EV.WORKOUT_EDITED, { split: workout.split })
+    setEditingWorkout(workout)
+  }
   const handleSaveEdit = (updates) => {
     if (editingWorkout) store.updateWorkout(editingWorkout.id, updates)
     setEditingWorkout(null)
@@ -997,7 +1013,7 @@ export default function WorkoutLogger() {
           {/* Split quick-start grid */}
           <div className="px-4 mt-3 grid grid-cols-2 gap-3">
             {Object.entries(SPLIT_LABELS).map(([key, label]) => (
-              <button key={key} onClick={() => store.startWorkout(key)}
+              <button key={key} onClick={() => { track(EV.WORKOUT_STARTED, { split: key, via: 'split_grid' }); store.startWorkout(key) }}
                 className="rounded-2xl p-5 text-left active:scale-95 transition-transform"
                 style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
                 <div className="text-white font-bold text-base">{label}</div>
@@ -1094,7 +1110,7 @@ export default function WorkoutLogger() {
         rows={3}
         placeholder="Add notes for this workout..."
         value={activeWorkout.notes || ''}
-        onChange={e => store.updateWorkoutNotes(e.target.value)}
+        onChange={e => { store.updateWorkoutNotes(e.target.value); if (e.target.value.trim()) track(EV.NOTES_USED, { type: 'workout' }) }}
         className="w-full bg-transparent resize-none outline-none"
         style={{ color: '#ccc', caretColor: '#22c55e', fontSize: 15 }}
       />
@@ -1177,17 +1193,17 @@ export default function WorkoutLogger() {
                 onToggleExpand={() => toggleExpanded(ex.name)}
                 pr={store.getPersonalRecord(ex.name)}
                 exerciseHistory={store.getExerciseHistory(ex.name)}
-                onAddSet={(name, set) => { store.addSet(name, set); timerRef.current?.start() }}
+                onAddSet={(name, set) => { store.addSet(name, set); timerRef.current?.start(); track(EV.TIMER_TRIGGERED, { split: activeWorkout.split }) }}
                 onUpdateSet={store.updateSet}
                 onRemoveSet={store.removeSet}
-                onToggleMoveUp={store.toggleReadyToMoveUp}
-                onUpdateNotes={store.updateExerciseNotes}
-                onRemove={store.removeExerciseFromWorkout}
+                onToggleMoveUp={(name) => { store.toggleReadyToMoveUp(name); track(EV.MOVE_UP_TOGGLED, { name }) }}
+                onUpdateNotes={(name, notes) => { store.updateExerciseNotes(name, notes); if (notes.trim()) track(EV.NOTES_USED, { type: 'exercise' }) }}
+                onRemove={(name) => { store.removeExerciseFromWorkout(name); track(EV.EXERCISE_REMOVED, { name, split: activeWorkout.split }) }}
               />
             </Fragment>
           ))}
 
-          <button onClick={() => setShowSelector(true)}
+          <button onClick={() => { setShowSelector(true); track(EV.SELECTOR_OPENED, { context: 'active_workout' }) }}
             className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 font-semibold text-sm"
             style={{ background: '#141414', color: '#22c55e', border: '1px dashed #1e1e1e' }}>
             <Plus size={18} /> Add Exercise
@@ -1204,6 +1220,7 @@ export default function WorkoutLogger() {
           onSelect={(name) => {
             store.addExerciseToWorkout(name)
             setExpandedExercises(prev => new Set([...prev, name]))
+            track(EV.EXERCISE_ADDED, { name, split: activeWorkout.split })
           }}
           onClose={() => setShowSelector(false)}
         />
@@ -1215,7 +1232,7 @@ export default function WorkoutLogger() {
             <h2 className="text-white font-bold text-lg">Finish workout?</h2>
             <p className="text-sm" style={{ color: '#888' }}>{activeWorkout.exercises.length} exercise{activeWorkout.exercises.length !== 1 ? 's' : ''} · {fmt(elapsed)}</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowFinishConfirm(false)} className="flex-1 py-3 rounded-2xl font-semibold text-sm" style={{ background: '#2a2a2a', color: '#888' }}>Cancel</button>
+              <button onClick={() => { setShowFinishConfirm(false); track(EV.FINISH_CANCELLED) }} className="flex-1 py-3 rounded-2xl font-semibold text-sm" style={{ background: '#2a2a2a', color: '#888' }}>Cancel</button>
               <button onClick={handleFinish} className="flex-1 py-3 rounded-2xl font-semibold text-sm text-black" style={{ background: '#22c55e' }}>Save Workout</button>
             </div>
           </div>

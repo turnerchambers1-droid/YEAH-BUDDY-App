@@ -7,6 +7,7 @@ import SocialView     from './components/SocialView'
 import UserSetup      from './components/UserSetup'
 import { useWorkoutStore } from './store/workoutStore'
 import { SPLIT_LABELS } from './data/exercises'
+import { track, EV } from './utils/analytics'
 
 const TABS = [
   { id: 'workout',  label: 'Workout',   Icon: Dumbbell },
@@ -291,6 +292,11 @@ export default function App() {
   const [tab, setTab] = useState('workout')
   const store = useWorkoutStore()
 
+  const handleSetTab = (t) => {
+    track(EV.TAB_VISIT, { tab: t })
+    setTab(t)
+  }
+
   if (store.loading) return (
     <div className="fixed inset-0 flex items-center justify-center" style={{ background: '#0a0a0a' }}>
       <div className="flex flex-col items-center gap-4">
@@ -302,7 +308,7 @@ export default function App() {
 
   if (!store.currentUser) return <UserSetup />
 
-  if (tab === 'profile') return <ProfileTab store={store} tab={tab} setTab={setTab} />
+  if (tab === 'profile') return <ProfileTab store={store} tab={tab} setTab={handleSetTab} />
 
   return (
     <div className="relative" style={{ minHeight: '100dvh', background: '#0a0a0a' }}>
@@ -316,14 +322,14 @@ export default function App() {
       </div>
 
       {store.activeWorkout && tab !== 'workout' && (
-        <button onClick={() => setTab('workout')}
+        <button onClick={() => handleSetTab('workout')}
           className="fixed top-5 right-4 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold text-black shadow-lg"
           style={{ background: '#22c55e' }}>
           <span className="w-2 h-2 rounded-full bg-black animate-pulse" />Live
         </button>
       )}
 
-      <BottomNav tab={tab} setTab={setTab} store={store} />
+      <BottomNav tab={tab} setTab={handleSetTab} store={store} />
     </div>
   )
 }
