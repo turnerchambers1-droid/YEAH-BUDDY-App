@@ -237,9 +237,190 @@ function getStreak(dates) {
   return streak
 }
 
+// ── Usage Insights Panel ─────────────────────────────────────────────────────
+function InsightsView({ workouts }) {
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+  const stats = useMemo(() => {
+    if (!workouts.length) return null
+
+    // Day of week frequency
+    const dayFreq = [0, 0, 0, 0, 0, 0, 0]
+    workouts.forEach(w => {
+      const d = new Date(w.date + 'T12:00:00').getDay()
+      dayFreq[d]++
+    })
+    const bestDayIdx = dayFreq.indexOf(Math.max(...dayFreq))
+
+    // Most used exercises
+    const exFreq = {}
+    workouts.forEach(w => w.exercises.forEach(ex => {
+      exFreq[ex.name] = (exFreq[ex.name] || 0) + 1
+    }))
+    const topExercises = Object.entries(exFreq).sort((a, b) => b[1] - a[1]).slice(0, 5)
+
+    // Muscle group frequency by sets
+    const muscleFreq = {}
+    workouts.forEach(w => w.exercises.forEach(ex => {
+      const exData = EXERCISES.find(e => e.name === ex.name)
+      if (exData) {
+        exData.primaryMuscles.forEach(m => {
+          muscleFreq[m] = (muscleFreq[m] || 0) + ex.sets.length
+        })
+      }
+    }))
+    const topMuscles = Object.entries(muscleFreq)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([m, count]) => ({ muscle: MUSCLE_LABELS[m] || m, count }))
+    const maxMuscleCount = topMuscles[0]?.count || 1
+
+    // All tracked muscles — find any never trained
+    const allMuscles = Object.keys(MUSCLE_LABELS)
+    const neglectedMuscles = allMuscles
+      .filter(m => !muscleFreq[m])
+      .map(m => MUSCLE_LABELS[m])
+      .slice(0, 3)
+
+    // Average workout stats
+    const totalEx = workouts.reduce((a, w) => a + w.exercises.length, 0)
+    const totalSets = workouts.reduce((a, w) => a + w.exercises.reduce((s, e) => s + e.sets.length, 0), 0)
+    const durWorkouts = workouts.filter(w => w.endTime && w.startTime)
+    const avgDuration = durWorkouts.length
+      ? Math.round(durWorkouts.reduce((a, w) => a + (w.endTime - w.startTime) / 60000, 0) / durWorkouts.length)
+      : null
+
+    // Days since last workout
+    const daysSinceLast = workouts[0]
+      ? Math.round((Date.now() - new Date(workouts[0].date + 'T12:00:00')) / 86400000)
+      : null
+
+    // Split frequency
+    const splitFreq = {}
+    workouts.forEach(w => { if (w.split && w.split !== 'custom') splitFreq[w.split] = (splitFreq[w.split] || 0) + 1 })
+    const topSplit = Object.entries(splitFreq).sort((a, b) => b[1] - a[1])[0]
+
+    // Suggestions
+    const suggestions = []
+    if (daysSinceLast !== null && daysSinceLast > 3) suggestions.push(`${daysSinceLast} days since your last workout — time to get back in there 💪`)
+    if (neglectedMuscles.length > 0 && workouts.length >= 5) suggestions.push(`Untrained muscle groups: ${neglectedMuscles.join(', ')}`)
+    if (topExercises.length > 0) suggestions.push(`Your go-to move is "${topExercises[0][0]}" — logged ${topExercises[0][1]}x`)
+    if (topSplit) suggestions.push(`You focus most on ${SPLIT_LABELS[topSplit[0]] || topSplit[0]} (${topSplit[1]} sessions)`)
+    if (avgDuration && avgDuration > 90) suggestions.push(`Avg workout is ${avgDuration} min — consider trimming rest time to stay under 75 min`)
+    if (avgDuration && avgDuration < 30 && workouts.length >= 3) suggestions.push(`Short sessions avg ${avgDuration} min — try adding 1–2 more exercises per session`)
+
+    return {
+      dayFreq, bestDayIdx, topExercises, topMuscles, maxMuscleCount,
+      neglectedMuscles, avgExercises: (totalEx / workouts.length).toFixed(1),
+      avgSets: (totalSets / workouts.length).toFixed(1), avgDuration,
+      daysSinceLast, suggestions,
+    }
+  }, [workouts])
+
+  if (!workouts.length || !stats) {
+    return (
+      <div className="px-4 py-16 flex flex-col items-center gap-3" style={{ color: '#555' }}>
+        <TrendingUp size={36} strokeWidth={1.5} />
+        <span className="text-sm text-center">Log at least one workout to see your usage insights</span>
+      </div>
+    )
+  }
+
+  const { dayFreq, bestDayIdx, topExercises, topMuscles, maxMuscleCount, avgExercises, avgSets, avgDuration, suggestions } = stats
+  const maxDayCount = Math.max(...dayFreq, 1)
+
+  return (
+    <div className="px-4 flex flex-col gap-4 pb-4">
+      {/* Avg stats row */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: 'Avg Exercises', value: avgExercises },
+          { label: 'Avg Sets', value: avgSets },
+          { label: 'Avg Duration', value: avgDuration ? `${avgDuration}m` : '—' },
+        ].map(s => (
+          <div key={s.label} className="rounded-2xl p-3 text-center" style={{ background: '#141414' }}>
+            <div className="font-bold text-white text-lg">{s.value}</div>
+            <div className="text-xs mt-0.5" style={{ color: '#555' }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Day of week heatmap */}
+      <div className="rounded-2xl p-4" style={{ background: '#141414' }}>
+        <div className="text-sm font-bold text-white mb-3">Workout Days</div>
+        <div className="flex gap-1.5 items-end" style={{ height: 64 }}>
+          {DAY_NAMES.map((day, i) => {
+            const pct = dayFreq[i] / maxDayCount
+            const isTop = i === bestDayIdx && dayFreq[i] > 0
+            return (
+              <div key={day} className="flex-1 flex flex-col items-center gap-1">
+                <div
+                  className="w-full rounded-lg transition-all"
+                  style={{
+                    height: `${Math.max(pct * 48, dayFreq[i] > 0 ? 6 : 2)}px`,
+                    background: isTop ? '#22c55e' : dayFreq[i] > 0 ? '#22c55e66' : '#1e1e1e',
+                    minHeight: 2,
+                  }}
+                />
+                <span className="text-xs" style={{ color: isTop ? '#22c55e' : '#555', fontSize: 9, fontWeight: isTop ? 700 : 400 }}>{day}</span>
+              </div>
+            )
+          })}
+        </div>
+        {dayFreq[bestDayIdx] > 0 && (
+          <div className="text-xs mt-2" style={{ color: '#555' }}>Best day: <span style={{ color: '#22c55e' }}>{DAY_NAMES[bestDayIdx]}</span> ({dayFreq[bestDayIdx]} sessions)</div>
+        )}
+      </div>
+
+      {/* Top exercises */}
+      {topExercises.length > 0 && (
+        <div className="rounded-2xl p-4" style={{ background: '#141414' }}>
+          <div className="text-sm font-bold text-white mb-3">Most-Used Exercises</div>
+          {topExercises.map(([name, count], i) => (
+            <div key={name} className="flex items-center gap-3 py-1.5">
+              <span className="text-xs font-bold w-4" style={{ color: i === 0 ? '#22c55e' : '#555' }}>#{i + 1}</span>
+              <span className="flex-1 text-white text-sm truncate">{name}</span>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#2a2a2a', color: '#888' }}>{count}x</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Muscle frequency */}
+      {topMuscles.length > 0 && (
+        <div className="rounded-2xl p-4" style={{ background: '#141414' }}>
+          <div className="text-sm font-bold text-white mb-3">Most Trained Muscles</div>
+          {topMuscles.map(({ muscle, count }) => (
+            <div key={muscle} className="flex items-center gap-3 py-1">
+              <span className="text-sm text-white w-24 flex-shrink-0">{muscle}</span>
+              <div className="flex-1 rounded-full h-2" style={{ background: '#1e1e1e' }}>
+                <div className="h-full rounded-full" style={{ width: `${(count / maxMuscleCount) * 100}%`, background: '#22c55e' }} />
+              </div>
+              <span className="text-xs w-8 text-right" style={{ color: '#555' }}>{count}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Suggestions */}
+      {suggestions.length > 0 && (
+        <div className="rounded-2xl p-4" style={{ background: '#141414' }}>
+          <div className="text-sm font-bold text-white mb-3">Insights & Tips</div>
+          {suggestions.map((s, i) => (
+            <div key={i} className="flex gap-3 py-2" style={{ borderBottom: i < suggestions.length - 1 ? '1px solid #1e1e1e' : 'none' }}>
+              <span style={{ color: '#22c55e', fontSize: 16 }}>→</span>
+              <span className="text-sm leading-relaxed" style={{ color: '#aaa' }}>{s}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ProgressView() {
   const store = useWorkoutStore()
-  const [view, setView] = useState('workouts')  // 'workouts' | 'exercises'
+  const [view, setView] = useState('workouts')  // 'workouts' | 'exercises' | 'insights'
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
 
@@ -295,32 +476,36 @@ export default function ProgressView() {
 
         {/* View toggle */}
         <div className="px-4 mb-3 flex gap-2">
-          <button
-            onClick={() => setView('workouts')}
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-            style={{ background: view === 'workouts' ? '#22c55e' : '#141414', color: view === 'workouts' ? '#000' : '#888' }}
-          >Workouts</button>
-          <button
-            onClick={() => setView('exercises')}
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-            style={{ background: view === 'exercises' ? '#22c55e' : '#141414', color: view === 'exercises' ? '#000' : '#888' }}
-          >Exercises</button>
+          {[
+            { id: 'workouts',  label: 'Workouts' },
+            { id: 'exercises', label: 'Exercises' },
+            { id: 'insights',  label: '✦ Insights' },
+          ].map(v => (
+            <button
+              key={v.id}
+              onClick={() => setView(v.id)}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+              style={{ background: view === v.id ? '#22c55e' : '#141414', color: view === v.id ? '#000' : '#888' }}
+            >{v.label}</button>
+          ))}
         </div>
 
-        {/* Search */}
-        <div className="px-4 pb-4">
-          <div className="flex items-center gap-2 rounded-xl px-4 py-3" style={{ background: '#141414' }}>
-            <Search size={16} className="text-gray-500 flex-shrink-0" />
-            <input
-              type="text"
-              placeholder={view === 'workouts' ? 'Search workouts...' : 'Search exercises...'}
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="flex-1 bg-transparent text-white text-sm outline-none placeholder-gray-500"
-            />
-            {search && <button onClick={() => setSearch('')} style={{ color: '#555' }}><X size={14} /></button>}
+        {/* Search (hidden on insights) */}
+        {view !== 'insights' && (
+          <div className="px-4 pb-4">
+            <div className="flex items-center gap-2 rounded-xl px-4 py-3" style={{ background: '#141414' }}>
+              <Search size={16} className="text-gray-500 flex-shrink-0" />
+              <input
+                type="text"
+                placeholder={view === 'workouts' ? 'Search workouts...' : 'Search exercises...'}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="flex-1 bg-transparent text-white text-sm outline-none placeholder-gray-500"
+              />
+              {search && <button onClick={() => setSearch('')} style={{ color: '#555' }}><X size={14} /></button>}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── Workouts view ── */}
         {view === 'workouts' && (
@@ -341,6 +526,9 @@ export default function ProgressView() {
             )}
           </div>
         )}
+
+        {/* ── Insights view ── */}
+        {view === 'insights' && <InsightsView workouts={store.workouts} />}
 
         {/* ── Exercises view ── */}
         {view === 'exercises' && (
