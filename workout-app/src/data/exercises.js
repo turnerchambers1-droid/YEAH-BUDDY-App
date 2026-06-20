@@ -181,11 +181,34 @@ export const EXERCISES = [
   { name: 'Smith Calf Raise',           split: 'LegsAbs',   muscleGroup: 'Calf',      primaryMuscles: ['calves'],     secondaryMuscles: [] },
 
   // ── ABS / ADDUCTORS ────────────────────────────────────────────────────────
-  { name: 'Abduction (Outward)',         split: 'LegsAbs',   muscleGroup: 'Abs',       primaryMuscles: ['abductors'],  secondaryMuscles: ['glutes'] },
-  { name: 'Adduction (Inward)',          split: 'LegsAbs',   muscleGroup: 'Abs',       primaryMuscles: ['adductors'],  secondaryMuscles: [] },
-  { name: 'Bench Crunch',               split: 'LegsAbs',   muscleGroup: 'Abs',       primaryMuscles: ['abs'],        secondaryMuscles: [] },
-  { name: 'Leg Raise',                  split: 'LegsAbs',   muscleGroup: 'Abs',       primaryMuscles: ['abs'],        secondaryMuscles: [] },
-  { name: 'Cable Crunch',               split: 'LegsAbs',   muscleGroup: 'Abs',       primaryMuscles: ['abs'],        secondaryMuscles: [] },
+  { name: 'Abduction (Outward)',         split: 'LegsAbs',    muscleGroup: 'Abs',         primaryMuscles: ['abductors'],             secondaryMuscles: ['glutes'] },
+  { name: 'Adduction (Inward)',          split: 'LegsAbs',    muscleGroup: 'Abs',         primaryMuscles: ['adductors'],             secondaryMuscles: [] },
+  { name: 'Bench Crunch',               split: 'LegsAbs',    muscleGroup: 'Abs',         primaryMuscles: ['abs'],                   secondaryMuscles: [] },
+  { name: 'Leg Raise',                  split: 'LegsAbs',    muscleGroup: 'Abs',         primaryMuscles: ['abs'],                   secondaryMuscles: [] },
+  { name: 'Cable Crunch',               split: 'LegsAbs',    muscleGroup: 'Abs',         primaryMuscles: ['abs'],                   secondaryMuscles: [] },
+
+  // ── KETTLEBELL (KB = equipment descriptor, distributed by real muscle group) ───────
+  { name: 'KB Swing',            split: 'LegsAbs',   muscleGroup: 'Hamstring', primaryMuscles: ['glutes','hamstrings'],    secondaryMuscles: ['lower_back','traps'] },
+  { name: 'KB Turkish Get Up',   split: 'Shoulders', muscleGroup: 'Shoulder',  primaryMuscles: ['front_delt','abs'],       secondaryMuscles: ['glutes','triceps'] },
+  { name: 'KB Clean',            split: 'LegsAbs',   muscleGroup: 'Hamstring', primaryMuscles: ['glutes','hamstrings'],    secondaryMuscles: ['traps','biceps','lower_back'] },
+  { name: 'KB Snatch',           split: 'LegsAbs',   muscleGroup: 'Hamstring', primaryMuscles: ['glutes','hamstrings'],    secondaryMuscles: ['traps','front_delt','lower_back'] },
+  { name: 'KB Clean & Press',    split: 'Shoulders', muscleGroup: 'Shoulder',  primaryMuscles: ['glutes','front_delt'],    secondaryMuscles: ['traps','triceps','lower_back'] },
+  { name: 'KB Goblet Squat',     split: 'LegsAbs',   muscleGroup: 'Quad',      primaryMuscles: ['quads'],                 secondaryMuscles: ['glutes','hamstrings'] },
+  { name: 'KB Deadlift',         split: 'LegsAbs',   muscleGroup: 'Hamstring', primaryMuscles: ['hamstrings','glutes'],    secondaryMuscles: ['lower_back','traps'] },
+  { name: 'KB Front Squat',      split: 'LegsAbs',   muscleGroup: 'Quad',      primaryMuscles: ['quads'],                 secondaryMuscles: ['glutes','front_delt'] },
+  { name: 'KB Lunge',            split: 'LegsAbs',   muscleGroup: 'Quad',      primaryMuscles: ['quads'],                 secondaryMuscles: ['glutes','hamstrings'] },
+  { name: 'KB RDL',              split: 'LegsAbs',   muscleGroup: 'Hamstring', primaryMuscles: ['hamstrings'],            secondaryMuscles: ['glutes','lower_back'] },
+  { name: 'KB Press',            split: 'Shoulders', muscleGroup: 'Shoulder',  primaryMuscles: ['front_delt'],            secondaryMuscles: ['side_delt','triceps'] },
+  { name: 'KB Push Press',       split: 'Shoulders', muscleGroup: 'Shoulder',  primaryMuscles: ['front_delt'],            secondaryMuscles: ['side_delt','triceps','quads'] },
+  { name: 'KB Halo',             split: 'Shoulders', muscleGroup: 'Shoulder',  primaryMuscles: ['side_delt'],             secondaryMuscles: ['front_delt','traps'] },
+  { name: 'KB Windmill',         split: 'Shoulders', muscleGroup: 'Shoulder',  primaryMuscles: ['front_delt'],            secondaryMuscles: ['abs','side_delt','glutes'] },
+  { name: 'KB Row',              split: 'BackTri',   muscleGroup: 'Back',      primaryMuscles: ['mid_back'],              secondaryMuscles: ['lats','biceps','rear_delt'] },
+  { name: 'KB Lat Pullover',     split: 'BackTri',   muscleGroup: 'Back',      primaryMuscles: ['lats'],                  secondaryMuscles: ['chest'] },
+  { name: 'KB Crush Curl',       split: 'ChestBi',   muscleGroup: 'Bicep',     primaryMuscles: ['biceps'],                secondaryMuscles: ['forearms'] },
+  { name: 'KB Tricep Kickback',  split: 'BackTri',   muscleGroup: 'Tricep',    primaryMuscles: ['triceps'],               secondaryMuscles: [] },
+  { name: 'KB Farmer Carry',     split: 'BackTri',   muscleGroup: 'Trap',      primaryMuscles: ['traps','forearms'],       secondaryMuscles: ['glutes','abs'] },
+  { name: 'KB Around the World', split: 'LegsAbs',   muscleGroup: 'Abs',       primaryMuscles: ['abs'],                   secondaryMuscles: ['side_delt','front_delt'] },
+  { name: 'KB Figure Eight',     split: 'LegsAbs',   muscleGroup: 'Abs',       primaryMuscles: ['abs'],                   secondaryMuscles: ['quads','glutes'] },
 ]
 
 export const SPLITS = ['ChestBi', 'BackTri', 'Shoulders', 'LegsAbs']
@@ -195,6 +218,68 @@ export const SPLIT_LABELS = {
   BackTri:   'Back & Tri',
   Shoulders: 'Shoulders',
   LegsAbs:   'Legs & Abs',
+}
+
+// Infer equipment type from an exercise object or name string.
+// Custom exercises already carry an `equipment` field — use that when present.
+export function inferEquipment(ex) {
+  if (ex && typeof ex === 'object' && ex.equipment) {
+    const e = ex.equipment.toLowerCase()
+    if (e === 'barbell')    return 'BB'
+    if (e === 'dumbbell')   return 'DB'
+    if (e === 'kettlebell') return 'KB'
+    if (e === 'cable')      return 'Cable'
+    if (e === 'machine')    return 'Machine'
+    if (e === 'bodyweight') return 'BW'
+    return ex.equipment
+  }
+  const n = (typeof ex === 'string' ? ex : ex?.name ?? '').toLowerCase()
+
+  if (n.startsWith('kb ') || n.includes(' kb '))              return 'KB'
+  if (/\bbb\b/.test(n))                                        return 'BB'
+  if (/\bdb\b/.test(n))                                        return 'DB'
+  if (/\bez\b/.test(n) || n.includes('camber') || n.includes('curl bar')) return 'EZ'
+  if (n.includes('hex bar') || /\bhb\b/.test(n))               return 'BB'
+  if (n.includes('cable') || n.includes('mag grip') || n.includes('rope ')) return 'Cable'
+  if (n.includes('machine') || n.includes('smith'))            return 'Machine'
+  if (n.includes('assisted'))                                  return 'Machine'
+  if (n.includes('plate') && !n.includes('shoulder'))          return 'Plate'
+  if (n.includes('pushdown') || n.includes('pull down'))       return 'Cable'
+  if (n.includes('dips') || n.includes('push up') || n.includes('pull up') || n.includes('chin up')) return 'BW'
+  if (n.includes('face pull'))                                 return 'Cable'
+  if (n.includes('back squat') || n.includes('front squat') || n.includes('t bar') || n.includes('hang clean')) return 'BB'
+  if (n.includes('hack squat') || n.includes('belt squat'))   return 'Machine'
+  if (n.includes('leg press') || n.includes('leg curl') || n.includes('leg extension')) return 'Machine'
+  if (n.includes('calf raise'))                               return 'Machine'
+  if (n.includes('abduction') || n.includes('adduction'))     return 'Machine'
+  if (n.includes('prone leg') || n.includes('glute back'))    return 'Machine'
+  if (n.includes('lat push') || n.includes('row') && n.includes('cable')) return 'Cable'
+
+  return null
+}
+
+// Equipment color palette
+export const EQUIP_COLORS = {
+  BB:      { bg: '#f59e0b22', text: '#f59e0b', border: '#f59e0b55' },
+  DB:      { bg: '#3b82f622', text: '#3b82f6', border: '#3b82f655' },
+  KB:      { bg: '#a78bfa22', text: '#a78bfa', border: '#a78bfa55' },
+  Cable:   { bg: '#f9731622', text: '#f97316', border: '#f9731655' },
+  Machine: { bg: '#22d3ee22', text: '#22d3ee', border: '#22d3ee55' },
+  BW:      { bg: '#22c55e22', text: '#22c55e', border: '#22c55e55' },
+  EZ:      { bg: '#f43f5e22', text: '#f43f5e', border: '#f43f5e55' },
+  Plate:   { bg: '#84cc1622', text: '#84cc16', border: '#84cc1655' },
+}
+
+// Split an exercise name into a readable base name + descriptor tags for display.
+// Data keys are unchanged; this is for UI rendering only.
+export function parseExerciseDisplay(name) {
+  const LEAD = ['KB', 'SA', 'DA', 'SL', 'HB', 'DB', 'BB', 'EZ', 'MAG', 'Cable']
+  const TRAIL = ['DB', 'BB', 'EZ', 'Machine', 'Cable']
+  let words = name.trim().split(/\s+/)
+  const tags = []
+  while (words.length > 1 && LEAD.includes(words[0])) tags.push(words.shift())
+  while (words.length > 1 && TRAIL.includes(words[words.length - 1])) tags.push(words.pop())
+  return { displayName: words.join(' '), tags: [...new Set(tags)] }
 }
 
 export function getExerciseByName(name) {

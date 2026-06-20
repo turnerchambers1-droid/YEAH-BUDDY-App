@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, Fragment } from 'react'
+import { track, EV } from '../utils/analytics'
 import { Plus, Trash2, ChevronDown, ChevronUp, ArrowUpCircle, X, Pencil, Archive, Edit3, Zap } from 'lucide-react'
 import { useWorkoutStore } from '../store/workoutStore'
-import { SPLIT_LABELS, EXERCISES } from '../data/exercises'
+import { SPLIT_LABELS, EXERCISES, parseExerciseDisplay } from '../data/exercises'
 import ExerciseSelector from './ExerciseSelector'
 import RestTimer from './RestTimer'
 import { useWgerGif } from '../utils/wgerGif'
@@ -60,6 +61,38 @@ function getDailyTagline() {
   return pool[day % pool.length]
 }
 
+// ── Exercise name display with equipment descriptor tags ──────────────────
+function ExerciseNameDisplay({ name }) {
+  const { displayName, tags } = parseExerciseDisplay(name)
+  const TAG_COLORS = {
+    KB: { bg: '#a78bfa22', color: '#a78bfa' },
+    DB: { bg: '#3b82f622', color: '#3b82f6' },
+    BB: { bg: '#f59e0b22', color: '#f59e0b' },
+    SA: { bg: '#22d3ee22', color: '#22d3ee' },
+    EZ: { bg: '#f43f5e22', color: '#f43f5e' },
+    Cable: { bg: '#f9731622', color: '#f97316' },
+    Machine: { bg: '#22d3ee22', color: '#22d3ee' },
+    MAG: { bg: '#f9731622', color: '#f97316' },
+    DA: { bg: '#22d3ee22', color: '#22d3ee' },
+    SL: { bg: '#84cc1622', color: '#84cc16' },
+    HB: { bg: '#f59e0b22', color: '#f59e0b' },
+  }
+  return (
+    <span className="flex items-center gap-1.5 flex-wrap min-w-0">
+      <span className="text-white font-bold" style={{ fontSize: 15 }}>{displayName}</span>
+      {tags.map(tag => {
+        const c = TAG_COLORS[tag] || { bg: '#2a2a2a', color: '#888' }
+        return (
+          <span key={tag} className="text-xs font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
+            style={{ background: c.bg, color: c.color }}>
+            {tag}
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
 // ── Floating input chips ───────────────────────────────────────────────────
 function ChipBar({ chips, onChip }) {
   return (
@@ -82,11 +115,14 @@ function ChipBar({ chips, onChip }) {
 function SetRow({ set, index, onUpdate, onRemove, lastSessionSet, exerciseHistory }) {
   const [focusedField, setFocusedField] = useState(null)
 
+  const currentReps = Number(set.reps) || 0
   const repChips = [
+    ...(currentReps > 1 ? [{ label: '−1', value: String(currentReps - 1) }] : []),
     { label: '8',  value: '8' },
     { label: '10', value: '10' },
     { label: '12', value: '12' },
     { label: '15', value: '15' },
+    { label: '+1', value: String(currentReps + 1) },
   ]
 
   const isBW = set.weight === 'BW'
@@ -101,7 +137,6 @@ function SetRow({ set, index, onUpdate, onRemove, lastSessionSet, exerciseHistor
       ]
 
   // 1RM-based weight suggestion when reps are set
-  const currentReps = Number(set.reps) || 0
   let oneRMSuggestion = null
   let historySuggestion = null
 
@@ -201,15 +236,27 @@ function SetRow({ set, index, onUpdate, onRemove, lastSessionSet, exerciseHistor
 }
 
 // ── Exercise card ──────────────────────────────────────────────────────────
-function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMoveUp, onRemove, onUpdateNotes, pr, exerciseHistory }) {
-  const [expanded, setExpanded] = useState(true)
+function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMoveUp, onRemove, onUpdateNotes, pr, exerciseHistory, expanded, onToggleExpand }) {
   const [showLastSession, setShowLastSession] = useState(false)
+  const [confirmRemove, setConfirmRemove] = useState(false)
+  const confirmTimer = useRef(null)
   const maxWeight = exercise.sets.length > 0 ? Math.max(...exercise.sets.map(s => Number(s.weight) || 0)) : 0
   const isPR = maxWeight > 0 && maxWeight > pr
 
-  const lastSession = exerciseHistory && exerciseHistory.length > 0 ? exerciseHistory[exerciseHistory.length - 1] : null
+  const lastSessions = exerciseHistory ? exerciseHistory.slice(-3).reverse() : []
+  const lastSession = lastSessions[0] || null
   const lastWeight = lastSession?.maxWeight || 0
   const lastReps = lastSession?.sets?.[0]?.reps || 0
+
+  const handleRemovePress = () => {
+    if (confirmRemove) {
+      clearTimeout(confirmTimer.current)
+      onRemove(exercise.name)
+    } else {
+      setConfirmRemove(true)
+      confirmTimer.current = setTimeout(() => setConfirmRemove(false), 3000)
+    }
+  }
 
   const handleAddSet = () => {
     const last = exercise.sets[exercise.sets.length - 1]
@@ -221,10 +268,10 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
   return (
     <div className="rounded-2xl mb-3 overflow-hidden" style={{ background: '#141414' }}>
       <div className="flex items-center justify-between px-4 py-3">
-        <button className="flex-1 flex items-center gap-2 text-left" onClick={() => setExpanded(e => !e)}>
-          <span className="text-white font-semibold text-sm">{exercise.name}</span>
-          {isPR && <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#22c55e22', color: '#22c55e' }}>PR!</span>}
-          {exercise.sets.length > 0 && <span className="text-xs" style={{ color: '#555' }}>{exercise.sets.length} set{exercise.sets.length > 1 ? 's' : ''}</span>}
+        <button className="flex-1 flex items-center gap-2 text-left min-w-0" onClick={onToggleExpand}>
+          <ExerciseNameDisplay name={exercise.name} />
+          {isPR && <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: '#22c55e22', color: '#22c55e' }}>PR!</span>}
+          {exercise.sets.length > 0 && <span className="text-xs flex-shrink-0" style={{ color: '#555' }}>{exercise.sets.length} set{exercise.sets.length > 1 ? 's' : ''}</span>}
         </button>
         <div className="flex items-center gap-1">
           <button onClick={() => onToggleMoveUp(exercise.name)} title="Ready to move up in weight"
@@ -232,8 +279,12 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
             style={{ background: exercise.readyToMoveUp ? '#00d4ff22' : 'transparent', color: exercise.readyToMoveUp ? '#00d4ff' : '#444' }}>
             <ArrowUpCircle size={18} />
           </button>
-          <button onClick={() => onRemove(exercise.name)} className="p-1.5" style={{ color: '#444' }}><X size={16} /></button>
-          <button onClick={() => setExpanded(e => !e)} style={{ color: '#444' }}>
+          <button onClick={handleRemovePress}
+            className="p-2.5 rounded-lg transition-all"
+            style={{ color: confirmRemove ? '#ef4444' : '#444', background: confirmRemove ? '#ef444418' : 'transparent' }}>
+            {confirmRemove ? <span className="text-xs font-bold" style={{ color: '#ef4444' }}>remove?</span> : <X size={18} />}
+          </button>
+          <button onClick={onToggleExpand} style={{ color: '#444' }}>
             {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </button>
         </div>
@@ -242,38 +293,44 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
       {/* Last session badge */}
       {lastWeight > 0 && (
         <button onClick={() => setShowLastSession(true)} className="mx-4 mb-1 px-3 py-1 rounded-lg flex items-center gap-1.5 text-left" style={{ background: '#1a1a1a' }}>
-          <span className="text-xs" style={{ color: '#555' }}>Last time: </span>
+          <span className="text-xs" style={{ color: '#555' }}>Last: </span>
           <span className="text-xs font-semibold underline decoration-dotted" style={{ color: '#22c55e' }}>{lastWeight} lbs × {lastReps}</span>
-          <span className="text-xs" style={{ color: '#444' }}>— tap to see all</span>
+          <span className="text-xs" style={{ color: '#444' }}>— tap for last {lastSessions.length}</span>
         </button>
       )}
 
-      {/* Last session overlay */}
-      {showLastSession && lastSession && (
+      {/* Last sessions overlay — shows up to 3 */}
+      {showLastSession && lastSessions.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-6" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
           onClick={() => setShowLastSession(false)}>
-          <div className="w-full max-w-sm rounded-3xl p-5 flex flex-col gap-3"
-            style={{ background: 'rgba(18,18,18,0.95)', border: '1px solid #2a2a2a' }}
+          <div className="w-full max-w-sm rounded-3xl p-5 flex flex-col gap-4"
+            style={{ background: 'rgba(18,18,18,0.95)', border: '1px solid #2a2a2a', maxHeight: '80vh', overflowY: 'auto' }}
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <div>
-                <div className="text-white font-bold text-base">{exercise.name}</div>
-                <div className="text-xs mt-0.5" style={{ color: '#555' }}>{lastSession.date}</div>
-              </div>
+              <div className="text-white font-bold text-base">{exercise.name}</div>
               <button onClick={() => setShowLastSession(false)} className="p-1.5 rounded-full" style={{ background: '#2a2a2a', color: '#888' }}>
                 <X size={16} />
               </button>
             </div>
-            <div className="flex gap-2 pb-1" style={{ borderBottom: '1px solid #2a2a2a' }}>
-              <div className="w-8 text-xs font-bold" style={{ color: '#555' }}>SET</div>
-              <div className="flex-1 text-xs font-bold text-center" style={{ color: '#555' }}>WEIGHT</div>
-              <div className="flex-1 text-xs font-bold text-center" style={{ color: '#555' }}>REPS</div>
-            </div>
-            {lastSession.sets.map((s, i) => (
-              <div key={s.id || i} className="flex gap-2 items-center">
-                <div className="w-8 text-xs font-mono" style={{ color: '#555' }}>{i + 1}</div>
-                <div className="flex-1 text-center text-sm font-semibold" style={{ color: '#f5f5f5' }}>{s.weight || '—'} lbs</div>
-                <div className="flex-1 text-center text-sm font-semibold" style={{ color: '#f5f5f5' }}>{s.reps || '—'}</div>
+            {lastSessions.map((session, si) => (
+              <div key={session.date + si}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-bold" style={{ color: '#22c55e' }}>{si === 0 ? 'Most Recent' : si === 1 ? '2 sessions ago' : '3 sessions ago'}</span>
+                  <span className="text-xs" style={{ color: '#555' }}>· {session.date}</span>
+                </div>
+                <div className="flex gap-2 pb-1 mb-1" style={{ borderBottom: '1px solid #2a2a2a' }}>
+                  <div className="w-8 text-xs font-bold" style={{ color: '#555' }}>SET</div>
+                  <div className="flex-1 text-xs font-bold text-center" style={{ color: '#555' }}>WEIGHT</div>
+                  <div className="flex-1 text-xs font-bold text-center" style={{ color: '#555' }}>REPS</div>
+                </div>
+                {session.sets.map((s, i) => (
+                  <div key={s.id || i} className="flex gap-2 items-center py-0.5">
+                    <div className="w-8 text-xs font-mono" style={{ color: '#555' }}>{i + 1}</div>
+                    <div className="flex-1 text-center text-sm font-semibold" style={{ color: '#f5f5f5' }}>{s.weight || '—'}{s.weight && s.weight !== 'BW' ? ' lbs' : ''}</div>
+                    <div className="flex-1 text-center text-sm font-semibold" style={{ color: '#f5f5f5' }}>{s.reps || '—'}</div>
+                  </div>
+                ))}
+                {si < lastSessions.length - 1 && <div className="mt-3" style={{ borderBottom: '1px solid #1e1e1e' }} />}
               </div>
             ))}
           </div>
@@ -359,6 +416,7 @@ function useGestures(onLongPress) {
 function WorkoutCard({ workout, onSoftDelete, onArchive, onStartAgain, onEdit }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const { swiped, setSwiped, handlers } = useGestures(() => setMenuOpen(true))
 
   const duration = workout.endTime
@@ -392,7 +450,7 @@ function WorkoutCard({ workout, onSoftDelete, onArchive, onStartAgain, onEdit })
               <span className="text-xs" style={{ color: '#888', fontSize: 9 }}>Archive</span>
             </button>
             <button
-              onClick={() => { onSoftDelete(workout.id); setSwiped(false) }}
+              onClick={() => { setSwiped(false); setConfirmDelete(true) }}
               className="flex-1 flex flex-col items-center gap-0.5 py-3 rounded-xl"
               style={{ background: '#ef444422' }}
             >
@@ -435,6 +493,29 @@ function WorkoutCard({ workout, onSoftDelete, onArchive, onStartAgain, onEdit })
           </div>
         )}
       </div>
+
+      {/* Confirm delete modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center px-6">
+          <div className="w-full max-w-sm rounded-3xl p-6 flex flex-col gap-4" style={{ background: '#141414' }}>
+            <div>
+              <div className="text-white font-bold text-lg">Delete workout?</div>
+              <div className="text-sm mt-1" style={{ color: '#888' }}>
+                {workout.name || SPLIT_LABELS[workout.split] || workout.split} · {workout.date}
+              </div>
+              <div className="text-xs mt-2" style={{ color: '#555' }}>Recoverable from Recently Deleted for 3 days.</div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDelete(false)} className="flex-1 py-3 rounded-2xl font-semibold text-sm" style={{ background: '#2a2a2a', color: '#888' }}>Cancel</button>
+              <button
+                onClick={() => { onSoftDelete(workout.id); setConfirmDelete(false) }}
+                className="flex-1 py-3 rounded-2xl font-semibold text-sm"
+                style={{ background: '#ef444422', color: '#ef4444', border: '1px solid #ef444444' }}
+              >Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 3-option menu modal */}
       {menuOpen && (
@@ -485,7 +566,7 @@ function WorkoutCard({ workout, onSoftDelete, onArchive, onStartAgain, onEdit })
                 </div>
               </button>
               <button
-                onClick={() => { onSoftDelete(workout.id); setMenuOpen(false) }}
+                onClick={() => { setMenuOpen(false); setConfirmDelete(true) }}
                 className="w-full flex items-center gap-3 px-5 py-4 text-left active:bg-white/5"
               >
                 <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: '#ef444422' }}>
@@ -513,6 +594,12 @@ function WorkoutCard({ workout, onSoftDelete, onArchive, onStartAgain, onEdit })
 function WorkoutEditModal({ workout, onSave, onClose }) {
   const [name, setName]   = useState(workout.name || '')
   const [date, setDate]   = useState(workout.date || '')
+  const [split, setSplit] = useState(workout.split || 'custom')
+  const [durationMins, setDurationMins] = useState(
+    workout.endTime && workout.startTime
+      ? String(Math.round((workout.endTime - workout.startTime) / 60000))
+      : ''
+  )
   const [exercises, setExercises] = useState(
     workout.exercises.map(ex => ({ ...ex, sets: ex.sets.map(s => ({ ...s })) }))
   )
@@ -548,7 +635,11 @@ function WorkoutEditModal({ workout, onSave, onClose }) {
   }
 
   const handleSave = () => {
-    onSave({ name: name.trim() || null, date, exercises })
+    const mins = parseInt(durationMins)
+    const endTime = !isNaN(mins) && mins > 0 && workout.startTime
+      ? workout.startTime + mins * 60000
+      : workout.endTime
+    onSave({ name: name.trim() || null, date, split, exercises, endTime })
     onClose()
   }
 
@@ -575,6 +666,36 @@ function WorkoutEditModal({ workout, onSave, onClose }) {
             <label className="text-xs font-bold uppercase tracking-widest mb-1.5 block" style={{ color: '#555' }}>Date</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)}
               className="w-full px-4 py-3 rounded-xl text-white outline-none" style={{ background: '#141414', fontSize: 16, colorScheme: 'dark' }} />
+          </div>
+
+          {/* Duration */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-widest mb-1.5 block" style={{ color: '#555' }}>Duration (minutes)</label>
+            <input type="number" inputMode="numeric" value={durationMins}
+              onChange={e => setDurationMins(e.target.value)}
+              placeholder="e.g. 45"
+              className="w-full px-4 py-3 rounded-xl text-white outline-none" style={{ background: '#141414', fontSize: 16 }} />
+          </div>
+
+          {/* Split / workout type */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-widest mb-2 block" style={{ color: '#555' }}>Workout Type</label>
+            <div className="grid grid-cols-2 gap-2">
+              {[...Object.entries(SPLIT_LABELS), ['custom', 'Custom']].map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setSplit(key)}
+                  className="py-3 rounded-xl text-sm font-semibold"
+                  style={{
+                    background: split === key ? '#22c55e22' : '#141414',
+                    color: split === key ? '#22c55e' : '#888',
+                    border: split === key ? '1px solid #22c55e44' : '1px solid #1e1e1e',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Exercises */}
@@ -788,7 +909,18 @@ export default function WorkoutLogger() {
   const [showSavePrompt,    setShowSavePrompt]    = useState(false)
   const [elapsed,           setElapsed]           = useState(0)
   const [editingWorkout,    setEditingWorkout]    = useState(null)
+  const [expandedExercises, setExpandedExercises] = useState(new Set())
+  const [showLastSplit,     setShowLastSplit]     = useState(false)
   const timerRef = useRef(null)
+
+  const toggleExpanded = useCallback((name) => {
+    setExpandedExercises(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     if (!store.activeWorkout) return
@@ -802,6 +934,7 @@ export default function WorkoutLogger() {
   }
 
   const handleStartCustom = (name, exerciseNames, mode) => {
+    track(EV.WORKOUT_STARTED, { split: 'custom', via: 'custom_modal', mode, preloaded: exerciseNames?.length || 0 })
     store.startWorkout('custom', name || null)
     if (exerciseNames && exerciseNames.length > 0) {
       exerciseNames.forEach(ex => store.addExerciseToWorkout(ex))
@@ -810,24 +943,38 @@ export default function WorkoutLogger() {
   }
 
   const handleStartHomeTile = (tile) => {
+    track(EV.WORKOUT_STARTED, { split: 'custom', via: 'home_tile', name: tile.name })
     store.startWorkout('custom', tile.name)
     tile.exercises.forEach(ex => store.addExerciseToWorkout(ex))
   }
 
   const handleStartAgain = (workout) => {
+    track(EV.WORKOUT_STARTED, { split: workout.split, via: 'start_again' })
     store.startWorkout(workout.split, workout.name)
     workout.exercises.forEach(ex => store.addExerciseToWorkout(ex.name))
   }
 
   const handleFinish = () => {
+    const aw = store.activeWorkout
+    if (aw) {
+      track(EV.WORKOUT_FINISHED, {
+        split: aw.split,
+        exercises: aw.exercises?.length || 0,
+        sets: (aw.exercises || []).reduce((s, e) => s + e.sets.length, 0),
+        duration: aw.startTime ? Math.round((Date.now() - aw.startTime) / 60000) : null,
+        hasNotes: !!(aw.notes?.trim()),
+      })
+    }
     store.finishWorkout()
     setShowFinishConfirm(false)
-    // If it was a custom/unnamed workout, prompt to save
     const wasCustom = store.activeWorkout?.split === 'custom'
     if (wasCustom) setShowSavePrompt(true)
   }
 
-  const handleEditWorkout = (workout) => setEditingWorkout(workout)
+  const handleEditWorkout = (workout) => {
+    track(EV.WORKOUT_EDITED, { split: workout.split })
+    setEditingWorkout(workout)
+  }
   const handleSaveEdit = (updates) => {
     if (editingWorkout) store.updateWorkout(editingWorkout.id, updates)
     setEditingWorkout(null)
@@ -866,7 +1013,7 @@ export default function WorkoutLogger() {
           {/* Split quick-start grid */}
           <div className="px-4 mt-3 grid grid-cols-2 gap-3">
             {Object.entries(SPLIT_LABELS).map(([key, label]) => (
-              <button key={key} onClick={() => store.startWorkout(key)}
+              <button key={key} onClick={() => { track(EV.WORKOUT_STARTED, { split: key, via: 'split_grid' }); store.startWorkout(key) }}
                 className="rounded-2xl p-5 text-left active:scale-95 transition-transform"
                 style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
                 <div className="text-white font-bold text-base">{label}</div>
@@ -945,6 +1092,30 @@ export default function WorkoutLogger() {
   // ── Active workout screen ─────────────────────────────────────────────────
   const { activeWorkout } = store
   const workoutTitle = activeWorkout.name || SPLIT_LABELS[activeWorkout.split] || activeWorkout.split
+  const firstExpandedIdx = activeWorkout.exercises.findIndex(ex => expandedExercises.has(ex.name))
+  const lastSameWorkouts = activeWorkout.split && activeWorkout.split !== 'custom'
+    ? store.workouts.filter(w => w.split === activeWorkout.split).slice(0, 3)
+    : []
+
+  const renderTimer = () => (
+    <div className="mt-2 mb-2">
+      <RestTimer ref={timerRef} inline voiceMode={store.voiceMode} />
+    </div>
+  )
+
+  const renderWorkoutNotes = () => (
+    <div className="mt-2 mb-4 rounded-2xl px-4 py-3" style={{ background: '#0d0d0d', border: '1px solid #2a2a2a' }}>
+      <span className="text-xs font-bold tracking-widest uppercase block mb-2" style={{ color: '#c8b97a', fontFamily: 'Courier New, monospace' }}>WORKOUT NOTES</span>
+      <textarea
+        rows={3}
+        placeholder="Add notes for this workout..."
+        value={activeWorkout.notes || ''}
+        onChange={e => { store.updateWorkoutNotes(e.target.value); if (e.target.value.trim()) track(EV.NOTES_USED, { type: 'workout' }) }}
+        className="w-full bg-transparent resize-none outline-none"
+        style={{ color: '#ccc', caretColor: '#22c55e', fontSize: 15 }}
+      />
+    </div>
+  )
 
   return (
     <>
@@ -960,53 +1131,100 @@ export default function WorkoutLogger() {
         </div>
 
         <div className="flex-1 px-4 pt-4">
+          {/* Last same-split workouts reference (up to 3) */}
+          {lastSameWorkouts.length > 0 && (
+            <div className="mb-3 rounded-2xl overflow-hidden" style={{ background: '#141414' }}>
+              <button
+                className="w-full flex items-center justify-between px-4 py-3"
+                onClick={() => setShowLastSplit(s => !s)}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#555' }}>
+                    Last {lastSameWorkouts.length > 1 ? `${lastSameWorkouts.length}x ` : ''}{SPLIT_LABELS[activeWorkout.split] || activeWorkout.split}
+                  </span>
+                  <span className="text-xs" style={{ color: '#444' }}>· {lastSameWorkouts[0].date}</span>
+                </div>
+                {showLastSplit ? <ChevronUp size={16} color="#444" /> : <ChevronDown size={16} color="#444" />}
+              </button>
+              {showLastSplit && (
+                <div className="px-4 pb-3" style={{ borderTop: '1px solid #1e1e1e' }}>
+                  {lastSameWorkouts.map((workout, wi) => (
+                    <div key={workout.id}>
+                      {wi > 0 && <div className="mt-3 mb-2 text-xs font-bold uppercase tracking-widest" style={{ color: '#444' }}>{workout.date}</div>}
+                      {workout.exercises.map(ex => {
+                        const topSet = ex.sets.length > 0
+                          ? ex.sets.reduce((b, s) => Number(s.weight) >= Number(b.weight) ? s : b, ex.sets[0])
+                          : null
+                        return (
+                          <div key={ex.name} className="flex items-center justify-between py-1.5" style={{ borderBottom: '1px solid #1a1a1a' }}>
+                            <span className="text-white text-sm">{ex.name}</span>
+                            <span className="text-xs" style={{ color: '#555' }}>
+                              {ex.sets.length}s
+                              {topSet?.weight ? ` · ${topSet.weight === 'BW' ? 'BW' : topSet.weight + ' lbs'}` : ''}
+                              {topSet?.reps ? ` × ${topSet.reps}` : ''}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {activeWorkout.exercises.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-16 text-gray-600">
               <Plus size={40} strokeWidth={1.5} />
               <span className="text-sm">Tap below to add your first exercise</span>
             </div>
           )}
-          {activeWorkout.exercises.map(ex => (
-            <ExerciseCard
-              key={ex.name}
-              exercise={ex}
-              pr={store.getPersonalRecord(ex.name)}
-              exerciseHistory={store.getExerciseHistory(ex.name)}
-              onAddSet={(name, set) => { store.addSet(name, set); timerRef.current?.start() }}
-              onUpdateSet={store.updateSet}
-              onRemoveSet={store.removeSet}
-              onToggleMoveUp={store.toggleReadyToMoveUp}
-              onUpdateNotes={store.updateExerciseNotes}
-              onRemove={store.removeExerciseFromWorkout}
-            />
+
+          {/* Timer above current exercise (or at top when nothing expanded) */}
+          {firstExpandedIdx === -1 && renderTimer()}
+
+          {/* Exercise cards — timer inserts before the first expanded one */}
+          {activeWorkout.exercises.map((ex, i) => (
+            <Fragment key={ex.name}>
+              {i === firstExpandedIdx && renderTimer()}
+              <ExerciseCard
+                exercise={ex}
+                expanded={expandedExercises.has(ex.name)}
+                onToggleExpand={() => toggleExpanded(ex.name)}
+                pr={store.getPersonalRecord(ex.name)}
+                exerciseHistory={store.getExerciseHistory(ex.name)}
+                onAddSet={(name, set) => { store.addSet(name, set); timerRef.current?.start(); track(EV.TIMER_TRIGGERED, { split: activeWorkout.split }) }}
+                onUpdateSet={store.updateSet}
+                onRemoveSet={store.removeSet}
+                onToggleMoveUp={(name) => { store.toggleReadyToMoveUp(name); track(EV.MOVE_UP_TOGGLED, { name }) }}
+                onUpdateNotes={(name, notes) => { store.updateExerciseNotes(name, notes); if (notes.trim()) track(EV.NOTES_USED, { type: 'exercise' }) }}
+                onRemove={(name) => { store.removeExerciseFromWorkout(name); track(EV.EXERCISE_REMOVED, { name, split: activeWorkout.split }) }}
+              />
+            </Fragment>
           ))}
-          <button onClick={() => setShowSelector(true)}
+
+          <button onClick={() => { setShowSelector(true); track(EV.SELECTOR_OPENED, { context: 'active_workout' }) }}
             className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 font-semibold text-sm"
             style={{ background: '#141414', color: '#22c55e', border: '1px dashed #1e1e1e' }}>
             <Plus size={18} /> Add Exercise
           </button>
 
-          {/* Rest timer — compact, at bottom */}
-          <div className="mt-4 mb-2">
-            <RestTimer ref={timerRef} inline voiceMode={store.voiceMode} />
-          </div>
-
-          {/* Workout notes */}
-          <div className="mb-4 rounded-2xl px-4 py-3" style={{ background: '#0d0d0d', border: '1px solid #2a2a2a' }}>
-            <span className="text-xs font-bold tracking-widest uppercase block mb-2" style={{ color: '#c8b97a', fontFamily: 'Courier New, monospace' }}>WORKOUT NOTES</span>
-            <textarea
-              rows={3}
-              placeholder="Add notes for this workout..."
-              value={store.activeWorkout.notes || ''}
-              onChange={e => store.updateWorkoutNotes(e.target.value)}
-              className="w-full bg-transparent resize-none text-sm outline-none"
-              style={{ color: '#ccc', caretColor: '#22c55e' }}
-            />
-          </div>
+          {/* Workout notes always at bottom */}
+          {renderWorkoutNotes()}
         </div>
       </div>
 
-      {showSelector && <ExerciseSelector currentExercises={activeWorkout.exercises.map(e => e.name)} onSelect={store.addExerciseToWorkout} onClose={() => setShowSelector(false)} />}
+      {showSelector && (
+        <ExerciseSelector
+          currentExercises={activeWorkout.exercises.map(e => e.name)}
+          onSelect={(name) => {
+            store.addExerciseToWorkout(name)
+            setExpandedExercises(prev => new Set([...prev, name]))
+            track(EV.EXERCISE_ADDED, { name, split: activeWorkout.split })
+          }}
+          onClose={() => setShowSelector(false)}
+        />
+      )}
 
       {showFinishConfirm && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center px-6">
@@ -1014,10 +1232,9 @@ export default function WorkoutLogger() {
             <h2 className="text-white font-bold text-lg">Finish workout?</h2>
             <p className="text-sm" style={{ color: '#888' }}>{activeWorkout.exercises.length} exercise{activeWorkout.exercises.length !== 1 ? 's' : ''} · {fmt(elapsed)}</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowFinishConfirm(false)} className="flex-1 py-3 rounded-2xl font-semibold text-sm" style={{ background: '#2a2a2a', color: '#888' }}>Cancel</button>
+              <button onClick={() => { setShowFinishConfirm(false); track(EV.FINISH_CANCELLED) }} className="flex-1 py-3 rounded-2xl font-semibold text-sm" style={{ background: '#2a2a2a', color: '#888' }}>Cancel</button>
               <button onClick={handleFinish} className="flex-1 py-3 rounded-2xl font-semibold text-sm text-black" style={{ background: '#22c55e' }}>Save Workout</button>
             </div>
-            <button onClick={() => { store.discardWorkout(); setShowFinishConfirm(false) }} className="text-sm text-center py-1" style={{ color: '#ef4444' }}>Discard workout</button>
           </div>
         </div>
       )}
