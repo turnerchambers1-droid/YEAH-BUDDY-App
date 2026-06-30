@@ -131,6 +131,8 @@ function SetRow({ set, index, onUpdate, onRemove, lastSessionSet, exerciseHistor
     ? [{ label: 'Clear BW', value: '' }]
     : [
         { label: 'BW',   value: 'BW' },
+        ...(currentWeight >= 5   ? [{ label: '-5',   value: String(currentWeight - 5) }]   : []),
+        ...(currentWeight >= 2.5 ? [{ label: '-2.5', value: String(currentWeight - 2.5) }] : []),
         { label: '+2.5', value: String(currentWeight + 2.5) },
         { label: '+5',   value: String(currentWeight + 5) },
         { label: '+10',  value: String(currentWeight + 10) },
@@ -236,17 +238,33 @@ function SetRow({ set, index, onUpdate, onRemove, lastSessionSet, exerciseHistor
 }
 
 // ── Exercise card ──────────────────────────────────────────────────────────
-function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMoveUp, onRemove, onUpdateNotes, pr, exerciseHistory, expanded, onToggleExpand }) {
+function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMoveUp, onRemove, onUpdateNotes, onRename, pr, exerciseHistory, expanded, onToggleExpand }) {
   const [showLastSession, setShowLastSession] = useState(false)
   const [confirmRemove, setConfirmRemove] = useState(false)
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState(exercise.name)
   const confirmTimer = useRef(null)
+
   const maxWeight = exercise.sets.length > 0 ? Math.max(...exercise.sets.map(s => Number(s.weight) || 0)) : 0
-  const isPR = maxWeight > 0 && maxWeight > pr
+  const hasBWNow = exercise.sets.some(s => s.weight === 'BW')
+  const hadBWBefore = exerciseHistory?.some(h => h.hasBW) || false
+  const isBWPR = hasBWNow && !hadBWBefore
+  const isPR = (maxWeight > 0 && maxWeight > pr) || isBWPR
 
   const lastSessions = exerciseHistory ? exerciseHistory.slice(-3).reverse() : []
   const lastSession = lastSessions[0] || null
-  const lastWeight = lastSession?.maxWeight || 0
-  const lastReps = lastSession?.sets?.[0]?.reps || 0
+  const lastSet = lastSession?.sets?.[lastSession.sets.length - 1] || null
+  const lastSetWeight = lastSet?.weight || ''
+  const lastSetReps = lastSet?.reps || 0
+  const showLastBadge = !!(lastSet && (lastSetWeight === 'BW' || Number(lastSetWeight) > 0))
+
+  const handleRename = () => {
+    const trimmed = nameInput.trim()
+    if (trimmed && trimmed !== exercise.name && onRename) {
+      onRename(exercise.name, trimmed)
+    }
+    setEditingName(false)
+  }
 
   const handleRemovePress = () => {
     if (confirmRemove) {
@@ -260,41 +278,71 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
 
   const handleAddSet = () => {
     const last = exercise.sets[exercise.sets.length - 1]
-    const defaultWeight = last?.weight || (exercise.sets.length === 0 ? String(lastWeight || '') : '')
-    const defaultReps   = last?.reps   || (exercise.sets.length === 0 ? String(lastReps   || '') : '')
+    const defaultWeight = last?.weight || (exercise.sets.length === 0 ? (lastSetWeight || '') : '')
+    const defaultReps   = last?.reps   || (exercise.sets.length === 0 ? String(lastSetReps || '') : '')
     onAddSet(exercise.name, { weight: defaultWeight, reps: defaultReps })
   }
 
   return (
     <div className="rounded-2xl mb-3 overflow-hidden" style={{ background: '#141414' }}>
       <div className="flex items-center justify-between px-4 py-3">
-        <button className="flex-1 flex items-center gap-2 text-left min-w-0" onClick={onToggleExpand}>
-          <ExerciseNameDisplay name={exercise.name} />
-          {isPR && <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: '#22c55e22', color: '#22c55e' }}>PR!</span>}
-          {exercise.sets.length > 0 && <span className="text-xs flex-shrink-0" style={{ color: '#555' }}>{exercise.sets.length} set{exercise.sets.length > 1 ? 's' : ''}</span>}
-        </button>
-        <div className="flex items-center gap-1">
-          <button onClick={() => onToggleMoveUp(exercise.name)} title="Ready to move up in weight"
-            className="p-1.5 rounded-lg transition-colors"
-            style={{ background: exercise.readyToMoveUp ? '#00d4ff22' : 'transparent', color: exercise.readyToMoveUp ? '#00d4ff' : '#444' }}>
-            <ArrowUpCircle size={18} />
-          </button>
-          <button onClick={handleRemovePress}
-            className="p-2.5 rounded-lg transition-all"
-            style={{ color: confirmRemove ? '#ef4444' : '#444', background: confirmRemove ? '#ef444418' : 'transparent' }}>
-            {confirmRemove ? <span className="text-xs font-bold" style={{ color: '#ef4444' }}>remove?</span> : <X size={18} />}
-          </button>
-          <button onClick={onToggleExpand} style={{ color: '#444' }}>
-            {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-          </button>
-        </div>
+        {editingName ? (
+          <>
+            <input
+              autoFocus
+              type="text"
+              value={nameInput}
+              onChange={e => setNameInput(e.target.value)}
+              onBlur={handleRename}
+              onKeyDown={e => {
+                if (e.key === 'Enter') e.target.blur()
+                if (e.key === 'Escape') { setNameInput(exercise.name); setEditingName(false) }
+              }}
+              className="flex-1 text-white font-bold rounded-lg px-2 py-1 outline-none mr-2"
+              style={{ background: '#1e1e1e', fontSize: 15, border: '1px solid #22c55e44' }}
+            />
+            <button onClick={handleRename} className="px-3 py-1 rounded-lg text-xs font-bold flex-shrink-0"
+              style={{ background: '#22c55e22', color: '#22c55e' }}>
+              Done
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="flex-1 flex items-center gap-2 text-left min-w-0" onClick={onToggleExpand}>
+              <ExerciseNameDisplay name={exercise.name} />
+              {isPR && <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: '#22c55e22', color: '#22c55e' }}>PR!</span>}
+              {exercise.sets.length > 0 && <span className="text-xs flex-shrink-0" style={{ color: '#555' }}>{exercise.sets.length} set{exercise.sets.length > 1 ? 's' : ''}</span>}
+            </button>
+            <div className="flex items-center gap-1">
+              <button onClick={() => { setNameInput(exercise.name); setEditingName(true) }}
+                className="p-1.5 rounded-lg" style={{ color: '#444' }}>
+                <Pencil size={14} />
+              </button>
+              <button onClick={() => onToggleMoveUp(exercise.name)} title="Ready to move up in weight"
+                className="p-1.5 rounded-lg transition-colors"
+                style={{ background: exercise.readyToMoveUp ? '#00d4ff22' : 'transparent', color: exercise.readyToMoveUp ? '#00d4ff' : '#444' }}>
+                <ArrowUpCircle size={18} />
+              </button>
+              <button onClick={handleRemovePress}
+                className="p-2.5 rounded-lg transition-all"
+                style={{ color: confirmRemove ? '#ef4444' : '#444', background: confirmRemove ? '#ef444418' : 'transparent' }}>
+                {confirmRemove ? <span className="text-xs font-bold" style={{ color: '#ef4444' }}>remove?</span> : <X size={18} />}
+              </button>
+              <button onClick={onToggleExpand} style={{ color: '#444' }}>
+                {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Last session badge */}
-      {lastWeight > 0 && (
+      {/* Last session badge — shows last set of last session */}
+      {showLastBadge && (
         <button onClick={() => setShowLastSession(true)} className="mx-4 mb-1 px-3 py-1 rounded-lg flex items-center gap-1.5 text-left" style={{ background: '#1a1a1a' }}>
           <span className="text-xs" style={{ color: '#555' }}>Last: </span>
-          <span className="text-xs font-semibold underline decoration-dotted" style={{ color: '#22c55e' }}>{lastWeight} lbs × {lastReps}</span>
+          <span className="text-xs font-semibold underline decoration-dotted" style={{ color: '#22c55e' }}>
+            {lastSetWeight === 'BW' ? 'BW' : `${lastSetWeight} lbs`} × {lastSetReps}
+          </span>
           <span className="text-xs" style={{ color: '#444' }}>— tap for last {lastSessions.length}</span>
         </button>
       )}
@@ -604,6 +652,18 @@ function WorkoutEditModal({ workout, onSave, onClose }) {
     workout.exercises.map(ex => ({ ...ex, sets: ex.sets.map(s => ({ ...s })) }))
   )
   const [showSelector, setShowSelector] = useState(false)
+  const [editingExName, setEditingExName] = useState(null)
+  const [exNameInput, setExNameInput] = useState('')
+
+  const renameExercise = (oldName, newName) => {
+    const trimmed = newName.trim()
+    if (!trimmed || exercises.find(e => e.name === trimmed && e.name !== oldName)) {
+      setEditingExName(null)
+      return
+    }
+    setExercises(exs => exs.map(ex => ex.name === oldName ? { ...ex, name: trimmed } : ex))
+    setEditingExName(null)
+  }
 
   const updateSet = (exName, setId, field, val) => {
     setExercises(exs => exs.map(ex => ex.name === exName
@@ -704,8 +764,30 @@ function WorkoutEditModal({ workout, onSave, onClose }) {
             {exercises.map(ex => (
               <div key={ex.name} className="rounded-2xl mb-3 overflow-hidden" style={{ background: '#141414' }}>
                 <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid #1e1e1e' }}>
-                  <span className="text-white font-semibold text-sm">{ex.name}</span>
-                  <button onClick={() => removeExercise(ex.name)} style={{ color: '#ef4444' }}><X size={16} /></button>
+                  {editingExName === ex.name ? (
+                    <input
+                      autoFocus
+                      type="text"
+                      value={exNameInput}
+                      onChange={e => setExNameInput(e.target.value)}
+                      onBlur={() => renameExercise(ex.name, exNameInput)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') renameExercise(ex.name, exNameInput)
+                        if (e.key === 'Escape') setEditingExName(null)
+                      }}
+                      className="flex-1 text-white font-semibold text-sm rounded-lg px-2 py-1 outline-none mr-2"
+                      style={{ background: '#1e1e1e', fontSize: 14, border: '1px solid #22c55e44' }}
+                    />
+                  ) : (
+                    <button
+                      onClick={() => { setEditingExName(ex.name); setExNameInput(ex.name) }}
+                      className="flex-1 flex items-center gap-2 text-left min-w-0"
+                    >
+                      <span className="text-white font-semibold text-sm truncate">{ex.name}</span>
+                      <Pencil size={12} style={{ color: '#444', flexShrink: 0 }} />
+                    </button>
+                  )}
+                  <button onClick={() => removeExercise(ex.name)} style={{ color: '#ef4444', flexShrink: 0 }}><X size={16} /></button>
                 </div>
 
                 <div className="px-4 pt-2 pb-3">
@@ -911,6 +993,8 @@ export default function WorkoutLogger() {
   const [editingWorkout,    setEditingWorkout]    = useState(null)
   const [expandedExercises, setExpandedExercises] = useState(new Set())
   const [showLastSplit,     setShowLastSplit]     = useState(false)
+  const [editingTitle,      setEditingTitle]      = useState(false)
+  const [titleInput,        setTitleInput]        = useState('')
   const timerRef = useRef(null)
 
   const toggleExpanded = useCallback((name) => {
@@ -1122,7 +1206,29 @@ export default function WorkoutLogger() {
       <div className="flex flex-col min-h-screen pb-28 pt-14">
         <div className="px-4 pt-4 pb-3 flex items-center justify-between" style={{ borderBottom: '1px solid #141414' }}>
           <div>
-            <div className="text-white font-bold text-lg">{workoutTitle || 'Custom Workout'}</div>
+            {editingTitle ? (
+              <input
+                autoFocus
+                type="text"
+                value={titleInput}
+                onChange={e => setTitleInput(e.target.value)}
+                onBlur={() => { store.updateActiveWorkoutName(titleInput.trim() || null); setEditingTitle(false) }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { store.updateActiveWorkoutName(titleInput.trim() || null); setEditingTitle(false) }
+                  if (e.key === 'Escape') setEditingTitle(false)
+                }}
+                className="text-white font-bold bg-transparent outline-none"
+                style={{ fontSize: 18, borderBottom: '1px solid #22c55e', minWidth: 120 }}
+              />
+            ) : (
+              <button
+                onClick={() => { setTitleInput(workoutTitle || ''); setEditingTitle(true) }}
+                className="flex items-center gap-2"
+              >
+                <div className="text-white font-bold text-lg">{workoutTitle || 'Custom Workout'}</div>
+                <Pencil size={13} style={{ color: '#444' }} />
+              </button>
+            )}
             <div className="text-sm font-mono" style={{ color: '#22c55e' }}>{fmt(elapsed)}</div>
           </div>
           <button onClick={() => setShowFinishConfirm(true)} className="px-4 py-2.5 rounded-xl font-semibold text-sm text-black" style={{ background: '#22c55e' }}>
@@ -1199,6 +1305,14 @@ export default function WorkoutLogger() {
                 onToggleMoveUp={(name) => { store.toggleReadyToMoveUp(name); track(EV.MOVE_UP_TOGGLED, { name }) }}
                 onUpdateNotes={(name, notes) => { store.updateExerciseNotes(name, notes); if (notes.trim()) track(EV.NOTES_USED, { type: 'exercise' }) }}
                 onRemove={(name) => { store.removeExerciseFromWorkout(name); track(EV.EXERCISE_REMOVED, { name, split: activeWorkout.split }) }}
+                onRename={(oldName, newName) => {
+                  store.renameExerciseInActiveWorkout(oldName, newName)
+                  setExpandedExercises(prev => {
+                    const next = new Set(prev)
+                    if (next.has(oldName)) { next.delete(oldName); next.add(newName) }
+                    return next
+                  })
+                }}
               />
             </Fragment>
           ))}

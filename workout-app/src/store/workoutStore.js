@@ -401,6 +401,26 @@ export function useWorkoutStore() {
     setState(s => ({ ...s, friends: (s.friends || []).filter(u => u !== targetUid) }))
   }, [uid])
 
+  // ── Active workout name / exercise rename ──────────────────────────────────
+  const updateActiveWorkoutName = useCallback((name) => {
+    setState(s => {
+      if (!s.activeWorkout) return s
+      const updated = { ...s.activeWorkout, name: name || null }
+      if (uid) updateUserDoc(uid, { activeWorkout: updated })
+      return { ...s, activeWorkout: updated }
+    })
+  }, [uid])
+
+  const renameExerciseInActiveWorkout = useCallback((oldName, newName) => {
+    if (!newName?.trim()) return
+    setState(s => {
+      if (!s.activeWorkout) return s
+      const updated = { ...s.activeWorkout, exercises: s.activeWorkout.exercises.map(e => e.name === oldName ? { ...e, name: newName.trim() } : e) }
+      if (uid) updateUserDoc(uid, { activeWorkout: updated })
+      return { ...s, activeWorkout: updated }
+    })
+  }, [uid])
+
   // ── History ────────────────────────────────────────────────────────────────
   const getExerciseHistory = useCallback((exerciseName) => {
     return state.workouts
@@ -409,7 +429,8 @@ export function useWorkoutStore() {
         const ex = w.exercises.find(e => e.name === exerciseName)
         const maxWeight = Math.max(0, ...ex.sets.map(s => Number(s.weight) || 0))
         const totalVolume = ex.sets.reduce((acc, s) => acc + (Number(s.reps) || 0) * (Number(s.weight) || 0), 0)
-        return { date: w.date, maxWeight, totalVolume, sets: ex.sets }
+        const hasBW = ex.sets.some(s => s.weight === 'BW')
+        return { date: w.date, maxWeight, totalVolume, sets: ex.sets, hasBW }
       })
       .reverse()
   }, [state.workouts])
@@ -433,6 +454,7 @@ export function useWorkoutStore() {
     saveTemplate, deleteTemplate, startFromTemplate,
     addCustomExercise,
     sendFriendRequest, cancelFriendRequest, acceptFriendRequest, rejectFriendRequest, unfriend,
+    updateActiveWorkoutName, renameExerciseInActiveWorkout,
     getExerciseHistory, getPersonalRecord, getWorkoutDates,
   }
 }
