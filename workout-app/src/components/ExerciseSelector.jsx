@@ -51,7 +51,7 @@ function CreateExerciseForm({ onAdd, onClose, initialName = '' }) {
   const inferSplit = (muscle) => {
     if (['chest', 'biceps', 'forearms'].includes(muscle)) return 'ChestBi'
     if (['lats', 'mid_back', 'lower_back', 'triceps', 'traps'].includes(muscle)) return 'BackTri'
-    if (['front_delt', 'side_delt', 'rear_delt'].includes(muscle)) return 'Shoulders'
+    if (['front_delt', 'side_delt', 'rear_delt', 'abs', 'abductors', 'adductors'].includes(muscle)) return 'Shoulders'
     return 'LegsAbs'
   }
 

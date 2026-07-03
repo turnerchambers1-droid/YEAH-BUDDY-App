@@ -181,11 +181,11 @@ export const EXERCISES = [
   { name: 'Smith Calf Raise',           split: 'LegsAbs',   muscleGroup: 'Calf',      primaryMuscles: ['calves'],     secondaryMuscles: [] },
 
   // ── ABS / ADDUCTORS ────────────────────────────────────────────────────────
-  { name: 'Abduction (Outward)',         split: 'LegsAbs',    muscleGroup: 'Abs',         primaryMuscles: ['abductors'],             secondaryMuscles: ['glutes'] },
-  { name: 'Adduction (Inward)',          split: 'LegsAbs',    muscleGroup: 'Abs',         primaryMuscles: ['adductors'],             secondaryMuscles: [] },
-  { name: 'Bench Crunch',               split: 'LegsAbs',    muscleGroup: 'Abs',         primaryMuscles: ['abs'],                   secondaryMuscles: [] },
-  { name: 'Leg Raise',                  split: 'LegsAbs',    muscleGroup: 'Abs',         primaryMuscles: ['abs'],                   secondaryMuscles: [] },
-  { name: 'Cable Crunch',               split: 'LegsAbs',    muscleGroup: 'Abs',         primaryMuscles: ['abs'],                   secondaryMuscles: [] },
+  { name: 'Abduction (Outward)',         split: 'Shoulders',    muscleGroup: 'Abs',         primaryMuscles: ['abductors'],             secondaryMuscles: ['glutes'] },
+  { name: 'Adduction (Inward)',          split: 'Shoulders',    muscleGroup: 'Abs',         primaryMuscles: ['adductors'],             secondaryMuscles: [] },
+  { name: 'Bench Crunch',               split: 'Shoulders',    muscleGroup: 'Abs',         primaryMuscles: ['abs'],                   secondaryMuscles: [] },
+  { name: 'Leg Raise',                  split: 'Shoulders',    muscleGroup: 'Abs',         primaryMuscles: ['abs'],                   secondaryMuscles: [] },
+  { name: 'Cable Crunch',               split: 'Shoulders',    muscleGroup: 'Abs',         primaryMuscles: ['abs'],                   secondaryMuscles: [] },
 
   // ── KETTLEBELL (KB = equipment descriptor, distributed by real muscle group) ───────
   { name: 'KB Swing',            split: 'LegsAbs',   muscleGroup: 'Hamstring', primaryMuscles: ['glutes','hamstrings'],    secondaryMuscles: ['lower_back','traps'] },
@@ -207,8 +207,8 @@ export const EXERCISES = [
   { name: 'KB Crush Curl',       split: 'ChestBi',   muscleGroup: 'Bicep',     primaryMuscles: ['biceps'],                secondaryMuscles: ['forearms'] },
   { name: 'KB Tricep Kickback',  split: 'BackTri',   muscleGroup: 'Tricep',    primaryMuscles: ['triceps'],               secondaryMuscles: [] },
   { name: 'KB Farmer Carry',     split: 'BackTri',   muscleGroup: 'Trap',      primaryMuscles: ['traps','forearms'],       secondaryMuscles: ['glutes','abs'] },
-  { name: 'KB Around the World', split: 'LegsAbs',   muscleGroup: 'Abs',       primaryMuscles: ['abs'],                   secondaryMuscles: ['side_delt','front_delt'] },
-  { name: 'KB Figure Eight',     split: 'LegsAbs',   muscleGroup: 'Abs',       primaryMuscles: ['abs'],                   secondaryMuscles: ['quads','glutes'] },
+  { name: 'KB Around the World', split: 'Shoulders',   muscleGroup: 'Abs',       primaryMuscles: ['abs'],                   secondaryMuscles: ['side_delt','front_delt'] },
+  { name: 'KB Figure Eight',     split: 'Shoulders',   muscleGroup: 'Abs',       primaryMuscles: ['abs'],                   secondaryMuscles: ['quads','glutes'] },
 ]
 
 export const SPLITS = ['ChestBi', 'BackTri', 'Shoulders', 'LegsAbs']
@@ -216,8 +216,8 @@ export const SPLITS = ['ChestBi', 'BackTri', 'Shoulders', 'LegsAbs']
 export const SPLIT_LABELS = {
   ChestBi:   'Chest & Bi',
   BackTri:   'Back & Tri',
-  Shoulders: 'Shoulders',
-  LegsAbs:   'Legs & Abs',
+  Shoulders: 'Shoulders & Abs',
+  LegsAbs:   'Legs',
 }
 
 // Infer equipment type from an exercise object or name string.
