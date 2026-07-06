@@ -257,6 +257,7 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
   const lastSetWeight = lastSet?.weight || ''
   const lastSetReps = lastSet?.reps || 0
   const showLastBadge = !!(lastSet && (lastSetWeight === 'BW' || Number(lastSetWeight) > 0))
+  const showPrevReadyToMoveUp = !!(lastSession?.readyToMoveUp && !exercise.readyToMoveUp)
 
   const handleRename = () => {
     const trimmed = nameInput.trim()
@@ -311,6 +312,7 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
             <button className="flex-1 flex items-center gap-2 text-left min-w-0" onClick={onToggleExpand}>
               <ExerciseNameDisplay name={exercise.name} />
               {isPR && <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: '#22c55e22', color: '#22c55e' }}>PR!</span>}
+              {showPrevReadyToMoveUp && <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 flex items-center gap-1" style={{ background: '#00d4ff22', color: '#00d4ff' }}><ArrowUpCircle size={11} /> Up weight</span>}
               {exercise.sets.length > 0 && <span className="text-xs flex-shrink-0" style={{ color: '#555' }}>{exercise.sets.length} set{exercise.sets.length > 1 ? 's' : ''}</span>}
             </button>
             <div className="flex items-center gap-1">
@@ -389,6 +391,13 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
         <div className="mx-4 mb-2 px-3 py-1.5 rounded-lg flex items-center gap-2" style={{ background: '#00d4ff11', border: '1px solid #00d4ff33' }}>
           <ArrowUpCircle size={14} style={{ color: '#00d4ff' }} />
           <span className="text-xs font-semibold" style={{ color: '#00d4ff' }}>Ready to increase weight next session</span>
+        </div>
+      )}
+
+      {showPrevReadyToMoveUp && (
+        <div className="mx-4 mb-2 px-3 py-1.5 rounded-lg flex items-center gap-2" style={{ background: '#00d4ff11', border: '1px solid #00d4ff33' }}>
+          <ArrowUpCircle size={14} style={{ color: '#00d4ff' }} />
+          <span className="text-xs font-semibold" style={{ color: '#00d4ff' }}>You flagged this to increase weight last session — try going up</span>
         </div>
       )}
 
