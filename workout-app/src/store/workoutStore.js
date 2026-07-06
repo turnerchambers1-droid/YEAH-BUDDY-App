@@ -430,7 +430,7 @@ export function useWorkoutStore() {
         const maxWeight = Math.max(0, ...ex.sets.map(s => Number(s.weight) || 0))
         const totalVolume = ex.sets.reduce((acc, s) => acc + (Number(s.reps) || 0) * (Number(s.weight) || 0), 0)
         const hasBW = ex.sets.some(s => s.weight === 'BW')
-        return { date: w.date, maxWeight, totalVolume, sets: ex.sets, hasBW }
+        return { date: w.date, maxWeight, totalVolume, sets: ex.sets, hasBW, readyToMoveUp: !!ex.readyToMoveUp }
       })
       .reverse()
   }, [state.workouts])
