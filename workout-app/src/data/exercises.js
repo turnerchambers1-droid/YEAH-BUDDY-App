@@ -220,6 +220,15 @@ export const SPLIT_LABELS = {
   LegsAbs:   'Legs',
 }
 
+// Muscle group tabs relevant to each workout split — used to preselect
+// exercise-selector filters so the right groups are already active.
+export const SPLIT_MUSCLE_GROUPS = {
+  ChestBi:   ['Chest', 'Bicep', 'Forearm'],
+  BackTri:   ['Back', 'Tricep', 'Trap'],
+  Shoulders: ['Shoulder', 'Rear Delt', 'Abs'],
+  LegsAbs:   ['Quad', 'Hamstring', 'Glute', 'Calf'],
+}
+
 // Infer equipment type from an exercise object or name string.
 // Custom exercises already carry an `equipment` field — use that when present.
 export function inferEquipment(ex) {

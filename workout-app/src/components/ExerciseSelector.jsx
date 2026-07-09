@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { X, Search, Plus } from 'lucide-react'
-import { EXERCISES, MUSCLE_LABELS, inferEquipment, EQUIP_COLORS } from '../data/exercises'
+import { EXERCISES, MUSCLE_LABELS, inferEquipment, EQUIP_COLORS, SPLIT_MUSCLE_GROUPS } from '../data/exercises'
 import { useWorkoutStore } from '../store/workoutStore'
 import { useWgerGif } from '../utils/wgerGif'
 
@@ -171,24 +171,37 @@ const MUSCLE_GROUPS = [
   'Glute','Abs','Calf','Forearm','Rear Delt','Trap','Kettlebell',
 ]
 
-export default function ExerciseSelector({ onSelect, onClose, currentExercises = [] }) {
+export default function ExerciseSelector({ onSelect, onClose, currentExercises = [], split = null }) {
   const store = useWorkoutStore()
-  const [search,      setSearch]      = useState('')
-  const [activeGroup, setActiveGroup] = useState('Chest')
+  const [search,       setSearch]       = useState('')
+  const [activeGroups, setActiveGroups] = useState(() => {
+    const preset = SPLIT_MUSCLE_GROUPS[split]
+    return new Set(preset && preset.length ? preset : ['Chest'])
+  })
   const [activeEquip, setActiveEquip] = useState(null)
   const [showCreate,  setShowCreate]  = useState(false)
+
+  const toggleGroup = (g) => {
+    setActiveGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(g)) next.delete(g)
+      else next.add(g)
+      return next
+    })
+    setActiveEquip(null)
+  }
 
   const allExercises = useMemo(
     () => [...EXERCISES, ...(store.customExercises || [])],
     [store.customExercises]
   )
 
-  // Pre-equipment-filter pool (search + muscle group)
+  // Pre-equipment-filter pool (search + muscle groups)
   const allFiltered = useMemo(() => {
     const q = search.toLowerCase().trim()
-    const pool = search ? allExercises : allExercises.filter(e => e.muscleGroup === activeGroup)
+    const pool = search ? allExercises : allExercises.filter(e => activeGroups.has(e.muscleGroup))
     return pool.filter(e => !q || e.name.toLowerCase().includes(q))
-  }, [search, activeGroup, allExercises])
+  }, [search, activeGroups, allExercises])
 
   // Equipment types present in this view
   const equipTypes = useMemo(() => {
@@ -263,20 +276,23 @@ export default function ExerciseSelector({ onSelect, onClose, currentExercises =
         </div>
       </div>
 
-      {/* Muscle group tabs (hidden during search) */}
+      {/* Muscle group tabs (hidden during search) — multi-select, preset from workout split */}
       {!search && (
         <div className="flex px-4 gap-2 pb-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-          {MUSCLE_GROUPS.map(g => (
-            <button
-              key={g}
-              onClick={() => { setActiveGroup(g); setActiveEquip(null) }}
-              className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-colors"
-              style={{
-                background: activeGroup === g ? '#22c55e' : '#1e1e1e',
-                color:      activeGroup === g ? '#000'    : '#888',
-              }}
-            >{g}</button>
-          ))}
+          {MUSCLE_GROUPS.map(g => {
+            const active = activeGroups.has(g)
+            return (
+              <button
+                key={g}
+                onClick={() => toggleGroup(g)}
+                className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-colors"
+                style={{
+                  background: active ? '#22c55e' : '#1e1e1e',
+                  color:      active ? '#000'    : '#888',
+                }}
+              >{g}</button>
+            )
+          })}
         </div>
       )}
 
@@ -360,10 +376,17 @@ export default function ExerciseSelector({ onSelect, onClose, currentExercises =
         )}
 
         {/* Equipment-filter empty state */}
-        {activeEquip && filtered.length === 0 && (
+        {activeEquip && filtered.length === 0 && activeGroups.size > 0 && (
           <div className="flex flex-col items-center gap-2 py-10" style={{ color: '#555' }}>
             <span className="text-sm">No {activeEquip} exercises in this group</span>
             <button onClick={() => setActiveEquip(null)} className="text-xs underline" style={{ color: '#888' }}>Clear filter</button>
+          </div>
+        )}
+
+        {/* No muscle group selected */}
+        {!search && activeGroups.size === 0 && (
+          <div className="flex flex-col items-center gap-2 py-10" style={{ color: '#555' }}>
+            <span className="text-sm">Select a muscle group above</span>
           </div>
         )}
 
