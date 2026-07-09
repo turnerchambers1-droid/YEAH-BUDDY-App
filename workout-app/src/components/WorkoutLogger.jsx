@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback, Fragment } from 'react'
 import { track, EV } from '../utils/analytics'
-import { Plus, Trash2, ChevronDown, ChevronUp, ArrowUpCircle, X, Pencil, Archive, Edit3, Zap } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronUp, ArrowUpCircle, X, Pencil, Archive, Edit3, Zap, Dumbbell } from 'lucide-react'
 import { useWorkoutStore } from '../store/workoutStore'
-import { SPLIT_LABELS, EXERCISES, parseExerciseDisplay } from '../data/exercises'
+import { SPLIT_LABELS, EXERCISES, parseExerciseDisplay, inferEquipment, EQUIP_COLORS } from '../data/exercises'
 import ExerciseSelector from './ExerciseSelector'
 import RestTimer from './RestTimer'
 import { useWgerGif } from '../utils/wgerGif'
@@ -238,12 +238,27 @@ function SetRow({ set, index, onUpdate, onRemove, lastSessionSet, exerciseHistor
 }
 
 // ── Exercise card ──────────────────────────────────────────────────────────
-function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMoveUp, onRemove, onUpdateNotes, onRename, pr, exerciseHistory, expanded, onToggleExpand }) {
+const EQUIPMENT_OPTIONS = ['Barbell', 'Dumbbell', 'Kettlebell', 'Cable', 'Machine', 'Bodyweight', 'Other']
+
+function EquipBadge({ eq }) {
+  const c = EQUIP_COLORS[eq]
+  if (!c) return null
+  return (
+    <span className="flex-shrink-0 font-bold rounded" style={{ background: c.bg, color: c.text, border: `1px solid ${c.border}`, fontSize: 10, padding: '2px 6px', letterSpacing: '0.03em' }}>
+      {eq}
+    </span>
+  )
+}
+
+function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMoveUp, onRemove, onUpdateNotes, onRename, onEditEquipment, pr, exerciseHistory, expanded, onToggleExpand }) {
   const [showLastSession, setShowLastSession] = useState(false)
   const [confirmRemove, setConfirmRemove] = useState(false)
   const [editingName, setEditingName] = useState(false)
+  const [editingEquip, setEditingEquip] = useState(false)
   const [nameInput, setNameInput] = useState(exercise.name)
   const confirmTimer = useRef(null)
+
+  const currentEquip = inferEquipment(exercise)
 
   const maxWeight = exercise.sets.length > 0 ? Math.max(...exercise.sets.map(s => Number(s.weight) || 0)) : 0
   const hasBWNow = exercise.sets.some(s => s.weight === 'BW')
@@ -277,11 +292,12 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
     }
   }
 
+  const GOAL_REPS = '15'
+
   const handleAddSet = () => {
     const last = exercise.sets[exercise.sets.length - 1]
     const defaultWeight = last?.weight || (exercise.sets.length === 0 ? (lastSetWeight || '') : '')
-    const defaultReps   = last?.reps   || (exercise.sets.length === 0 ? String(lastSetReps || '') : '')
-    onAddSet(exercise.name, { weight: defaultWeight, reps: defaultReps })
+    onAddSet(exercise.name, { weight: defaultWeight, reps: GOAL_REPS })
   }
 
   return (
@@ -311,6 +327,7 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
           <>
             <button className="flex-1 flex items-center gap-2 text-left min-w-0" onClick={onToggleExpand}>
               <ExerciseNameDisplay name={exercise.name} />
+              {currentEquip && <EquipBadge eq={currentEquip} />}
               {isPR && <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: '#22c55e22', color: '#22c55e' }}>PR!</span>}
               {showPrevReadyToMoveUp && <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 flex items-center gap-1" style={{ background: '#00d4ff22', color: '#00d4ff' }}><ArrowUpCircle size={11} /> Up weight</span>}
               {exercise.sets.length > 0 && <span className="text-xs flex-shrink-0" style={{ color: '#555' }}>{exercise.sets.length} set{exercise.sets.length > 1 ? 's' : ''}</span>}
@@ -319,6 +336,11 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
               <button onClick={() => { setNameInput(exercise.name); setEditingName(true) }}
                 className="p-1.5 rounded-lg" style={{ color: '#444' }}>
                 <Pencil size={14} />
+              </button>
+              <button onClick={() => setEditingEquip(v => !v)} title="Edit equipment"
+                className="p-1.5 rounded-lg transition-colors"
+                style={{ background: editingEquip ? '#22c55e22' : 'transparent', color: editingEquip ? '#22c55e' : '#444' }}>
+                <Dumbbell size={14} />
               </button>
               <button onClick={() => onToggleMoveUp(exercise.name)} title="Ready to move up in weight"
                 className="p-1.5 rounded-lg transition-colors"
@@ -337,6 +359,31 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
           </>
         )}
       </div>
+
+      {/* Equipment editor — mirrors name editing */}
+      {editingEquip && (
+        <div className="mx-4 mb-2 px-3 py-2 rounded-xl flex flex-wrap gap-1.5" style={{ background: '#1a1a1a' }}>
+          {EQUIPMENT_OPTIONS.map(opt => (
+            <button
+              key={opt}
+              onClick={() => { onEditEquipment(exercise.name, opt); setEditingEquip(false) }}
+              className="px-2.5 py-1 rounded-full text-xs font-semibold"
+              style={{
+                background: exercise.equipment === opt ? '#22c55e22' : '#2a2a2a',
+                color: exercise.equipment === opt ? '#22c55e' : '#888',
+                border: exercise.equipment === opt ? '1px solid #22c55e44' : '1px solid transparent',
+              }}
+            >{opt}</button>
+          ))}
+          {exercise.equipment && (
+            <button
+              onClick={() => { onEditEquipment(exercise.name, null); setEditingEquip(false) }}
+              className="px-2.5 py-1 rounded-full text-xs font-semibold"
+              style={{ background: '#2a2a2a', color: '#555' }}
+            >Clear</button>
+          )}
+        </div>
+      )}
 
       {/* Last session badge — shows last set of last session */}
       {showLastBadge && (
@@ -844,6 +891,7 @@ function WorkoutEditModal({ workout, onSave, onClose }) {
       {showSelector && (
         <ExerciseSelector
           currentExercises={exercises.map(e => e.name)}
+          split={split}
           onSelect={addExercise}
           onClose={() => setShowSelector(false)}
         />
@@ -1322,6 +1370,7 @@ export default function WorkoutLogger() {
                     return next
                   })
                 }}
+                onEditEquipment={store.updateExerciseEquipment}
               />
             </Fragment>
           ))}
@@ -1340,6 +1389,7 @@ export default function WorkoutLogger() {
       {showSelector && (
         <ExerciseSelector
           currentExercises={activeWorkout.exercises.map(e => e.name)}
+          split={activeWorkout.split}
           onSelect={(name) => {
             store.addExerciseToWorkout(name)
             setExpandedExercises(prev => new Set([...prev, name]))

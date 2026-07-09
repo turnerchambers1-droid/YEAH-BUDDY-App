@@ -421,6 +421,15 @@ export function useWorkoutStore() {
     })
   }, [uid])
 
+  const updateExerciseEquipment = useCallback((exerciseName, equipment) => {
+    setState(s => {
+      if (!s.activeWorkout) return s
+      const updated = { ...s.activeWorkout, exercises: s.activeWorkout.exercises.map(e => e.name === exerciseName ? { ...e, equipment: equipment || null } : e) }
+      if (uid) updateUserDoc(uid, { activeWorkout: updated })
+      return { ...s, activeWorkout: updated }
+    })
+  }, [uid])
+
   // ── History ────────────────────────────────────────────────────────────────
   const getExerciseHistory = useCallback((exerciseName) => {
     return state.workouts
@@ -454,7 +463,7 @@ export function useWorkoutStore() {
     saveTemplate, deleteTemplate, startFromTemplate,
     addCustomExercise,
     sendFriendRequest, cancelFriendRequest, acceptFriendRequest, rejectFriendRequest, unfriend,
-    updateActiveWorkoutName, renameExerciseInActiveWorkout,
+    updateActiveWorkoutName, renameExerciseInActiveWorkout, updateExerciseEquipment,
     getExerciseHistory, getPersonalRecord, getWorkoutDates,
   }
 }
