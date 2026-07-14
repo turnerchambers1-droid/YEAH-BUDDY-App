@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { X, Search, Plus } from 'lucide-react'
-import { EXERCISES, MUSCLE_LABELS, inferEquipment, EQUIP_COLORS, SPLIT_MUSCLE_GROUPS } from '../data/exercises'
+import { EXERCISES, MUSCLE_LABELS, inferEquipment, EQUIP_COLORS, SPLIT_MUSCLE_GROUPS, matchesSearch } from '../data/exercises'
 import { useWorkoutStore } from '../store/workoutStore'
 import { useWgerGif } from '../utils/wgerGif'
 
@@ -198,9 +198,8 @@ export default function ExerciseSelector({ onSelect, onClose, currentExercises =
 
   // Pre-equipment-filter pool (search + muscle groups)
   const allFiltered = useMemo(() => {
-    const q = search.toLowerCase().trim()
     const pool = search ? allExercises : allExercises.filter(e => activeGroups.has(e.muscleGroup))
-    return pool.filter(e => !q || e.name.toLowerCase().includes(q))
+    return pool.filter(e => matchesSearch(e, search))
   }, [search, activeGroups, allExercises])
 
   // Equipment types present in this view

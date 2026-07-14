@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, Fragment } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { track, EV } from '../utils/analytics'
 import { Plus, Trash2, ChevronDown, ChevronUp, ArrowUpCircle, X, Pencil, Archive, Edit3, Zap, Dumbbell } from 'lucide-react'
 import { useWorkoutStore } from '../store/workoutStore'
@@ -61,9 +61,14 @@ function getDailyTagline() {
   return pool[day % pool.length]
 }
 
+// Descriptor tags that duplicate the editable equipment badge — the badge already
+// shows this info and is the one the user can edit, so drop the matching tag chip.
+const EQUIP_TAG_MAP = { KB: 'KB', DB: 'DB', BB: 'BB', EZ: 'EZ', Cable: 'Cable', Machine: 'Machine', MAG: 'Cable', HB: 'BB' }
+
 // ── Exercise name display with equipment descriptor tags ──────────────────
-function ExerciseNameDisplay({ name }) {
-  const { displayName, tags } = parseExerciseDisplay(name)
+function ExerciseNameDisplay({ name, currentEquip }) {
+  const { displayName, tags: rawTags } = parseExerciseDisplay(name)
+  const tags = rawTags.filter(tag => EQUIP_TAG_MAP[tag] !== currentEquip)
   const TAG_COLORS = {
     KB: { bg: '#a78bfa22', color: '#a78bfa' },
     DB: { bg: '#3b82f622', color: '#3b82f6' },
@@ -326,7 +331,7 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
         ) : (
           <>
             <button className="flex-1 flex items-center gap-2 text-left min-w-0" onClick={onToggleExpand}>
-              <ExerciseNameDisplay name={exercise.name} />
+              <ExerciseNameDisplay name={exercise.name} currentEquip={currentEquip} />
               {currentEquip && <EquipBadge eq={currentEquip} />}
               {isPR && <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: '#22c55e22', color: '#22c55e' }}>PR!</span>}
               {showPrevReadyToMoveUp && <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 flex items-center gap-1" style={{ background: '#00d4ff22', color: '#00d4ff' }}><ArrowUpCircle size={11} /> Up weight</span>}
@@ -1233,7 +1238,6 @@ export default function WorkoutLogger() {
   // ── Active workout screen ─────────────────────────────────────────────────
   const { activeWorkout } = store
   const workoutTitle = activeWorkout.name || SPLIT_LABELS[activeWorkout.split] || activeWorkout.split
-  const firstExpandedIdx = activeWorkout.exercises.findIndex(ex => expandedExercises.has(ex.name))
   const lastSameWorkouts = activeWorkout.split && activeWorkout.split !== 'custom'
     ? store.workouts.filter(w => w.split === activeWorkout.split).slice(0, 3)
     : []
@@ -1343,36 +1347,31 @@ export default function WorkoutLogger() {
             </div>
           )}
 
-          {/* Timer above current exercise (or at top when nothing expanded) */}
-          {firstExpandedIdx === -1 && renderTimer()}
-
-          {/* Exercise cards — timer inserts before the first expanded one */}
-          {activeWorkout.exercises.map((ex, i) => (
-            <Fragment key={ex.name}>
-              {i === firstExpandedIdx && renderTimer()}
-              <ExerciseCard
-                exercise={ex}
-                expanded={expandedExercises.has(ex.name)}
-                onToggleExpand={() => toggleExpanded(ex.name)}
-                pr={store.getPersonalRecord(ex.name)}
-                exerciseHistory={store.getExerciseHistory(ex.name)}
-                onAddSet={(name, set) => { store.addSet(name, set); timerRef.current?.start(); track(EV.TIMER_TRIGGERED, { split: activeWorkout.split }) }}
-                onUpdateSet={store.updateSet}
-                onRemoveSet={store.removeSet}
-                onToggleMoveUp={(name) => { store.toggleReadyToMoveUp(name); track(EV.MOVE_UP_TOGGLED, { name }) }}
-                onUpdateNotes={(name, notes) => { store.updateExerciseNotes(name, notes); if (notes.trim()) track(EV.NOTES_USED, { type: 'exercise' }) }}
-                onRemove={(name) => { store.removeExerciseFromWorkout(name); track(EV.EXERCISE_REMOVED, { name, split: activeWorkout.split }) }}
-                onRename={(oldName, newName) => {
-                  store.renameExerciseInActiveWorkout(oldName, newName)
-                  setExpandedExercises(prev => {
-                    const next = new Set(prev)
-                    if (next.has(oldName)) { next.delete(oldName); next.add(newName) }
-                    return next
-                  })
-                }}
-                onEditEquipment={store.updateExerciseEquipment}
-              />
-            </Fragment>
+          {/* Exercise cards */}
+          {activeWorkout.exercises.map(ex => (
+            <ExerciseCard
+              key={ex.name}
+              exercise={ex}
+              expanded={expandedExercises.has(ex.name)}
+              onToggleExpand={() => toggleExpanded(ex.name)}
+              pr={store.getPersonalRecord(ex.name)}
+              exerciseHistory={store.getExerciseHistory(ex.name)}
+              onAddSet={(name, set) => { store.addSet(name, set); timerRef.current?.start(); track(EV.TIMER_TRIGGERED, { split: activeWorkout.split }) }}
+              onUpdateSet={store.updateSet}
+              onRemoveSet={store.removeSet}
+              onToggleMoveUp={(name) => { store.toggleReadyToMoveUp(name); track(EV.MOVE_UP_TOGGLED, { name }) }}
+              onUpdateNotes={(name, notes) => { store.updateExerciseNotes(name, notes); if (notes.trim()) track(EV.NOTES_USED, { type: 'exercise' }) }}
+              onRemove={(name) => { store.removeExerciseFromWorkout(name); track(EV.EXERCISE_REMOVED, { name, split: activeWorkout.split }) }}
+              onRename={(oldName, newName) => {
+                store.renameExerciseInActiveWorkout(oldName, newName)
+                setExpandedExercises(prev => {
+                  const next = new Set(prev)
+                  if (next.has(oldName)) { next.delete(oldName); next.add(newName) }
+                  return next
+                })
+              }}
+              onEditEquipment={store.updateExerciseEquipment}
+            />
           ))}
 
           <button onClick={() => { setShowSelector(true); track(EV.SELECTOR_OPENED, { context: 'active_workout' }) }}
@@ -1380,6 +1379,10 @@ export default function WorkoutLogger() {
             style={{ background: '#141414', color: '#22c55e', border: '1px dashed #1e1e1e' }}>
             <Plus size={18} /> Add Exercise
           </button>
+
+          {/* Timer stays mounted in one fixed spot — moving it in/out of the exercise
+              list on expand/collapse used to remount it and kill a running countdown */}
+          {renderTimer()}
 
           {/* Workout notes always at bottom */}
           {renderWorkoutNotes()}

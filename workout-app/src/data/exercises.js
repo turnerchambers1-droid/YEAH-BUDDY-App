@@ -291,6 +291,23 @@ export function parseExerciseDisplay(name) {
   return { displayName: words.join(' '), tags: [...new Set(tags)] }
 }
 
+// Robust search match: every whitespace-separated word in the query must appear
+// somewhere in the exercise's name, muscles, or equipment — in any order, in any
+// position — so "curl db" matches "Hammer Curl DB" just as well as "db curl".
+export function matchesSearch(ex, query) {
+  const q = (query || '').toLowerCase().trim()
+  if (!q) return true
+  const terms = q.split(/\s+/).filter(Boolean)
+  const haystack = [
+    ex.name,
+    ex.muscleGroup,
+    ...(ex.primaryMuscles || []),
+    ...(ex.secondaryMuscles || []),
+    ex.equipment,
+  ].filter(Boolean).join(' ').toLowerCase().replace(/_/g, ' ')
+  return terms.every(t => haystack.includes(t))
+}
+
 export function getExerciseByName(name) {
   return EXERCISES.find(e => e.name === name)
 }

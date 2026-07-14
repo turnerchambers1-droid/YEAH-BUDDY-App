@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore'
 import { onAuthStateChanged, signOut as fbSignOut } from 'firebase/auth'
 import { auth, db } from '../firebase'
+import { EXERCISES } from '../data/exercises'
 
 // ── Default shape ──────────────────────────────────────────────────────────
 function defaultData() {
@@ -413,11 +414,25 @@ export function useWorkoutStore() {
 
   const renameExerciseInActiveWorkout = useCallback((oldName, newName) => {
     if (!newName?.trim()) return
+    const trimmed = newName.trim()
     setState(s => {
       if (!s.activeWorkout) return s
-      const updated = { ...s.activeWorkout, exercises: s.activeWorkout.exercises.map(e => e.name === oldName ? { ...e, name: newName.trim() } : e) }
-      if (uid) updateUserDoc(uid, { activeWorkout: updated })
-      return { ...s, activeWorkout: updated }
+      const updated = { ...s.activeWorkout, exercises: s.activeWorkout.exercises.map(e => e.name === oldName ? { ...e, name: trimmed } : e) }
+
+      // Renaming to a name that isn't in the built-in list or the catalog yet is
+      // effectively creating a new exercise — save it so it shows up next time.
+      const known = EXERCISES.some(e => e.name === trimmed) || (s.customExercises || []).some(e => e.name === trimmed)
+      let customExercises = s.customExercises
+      if (!known) {
+        const source = EXERCISES.find(e => e.name === oldName) || (s.customExercises || []).find(e => e.name === oldName)
+        const newEntry = source
+          ? { ...source, name: trimmed, custom: true }
+          : { name: trimmed, split: (s.activeWorkout.split && s.activeWorkout.split !== 'custom') ? s.activeWorkout.split : 'ChestBi', muscleGroup: 'Other', primaryMuscles: [], secondaryMuscles: [], custom: true }
+        customExercises = [...(s.customExercises || []), newEntry]
+      }
+
+      if (uid) updateUserDoc(uid, { activeWorkout: updated, ...(known ? {} : { customExercises }) })
+      return { ...s, activeWorkout: updated, customExercises }
     })
   }, [uid])
 

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Search, X, ChevronRight, Sparkles, Plus } from 'lucide-react'
-import { EXERCISES, MUSCLE_LABELS, SPLITS, SPLIT_LABELS } from '../data/exercises'
+import { EXERCISES, MUSCLE_LABELS, SPLITS, SPLIT_LABELS, matchesSearch } from '../data/exercises'
 import { useWorkoutStore } from '../store/workoutStore'
 import MuscleBodyMap from './MuscleBodyMap'
 import { useWgerGif } from '../utils/wgerGif'
@@ -244,8 +244,7 @@ export default function LibraryView() {
   ], [store.customExercises])
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    return allExercises.filter(e => !q || e.name.toLowerCase().includes(q))
+    return allExercises.filter(e => matchesSearch(e, search))
   }, [search, allExercises])
 
   // Group by primary muscle (spec item 6)
