@@ -330,7 +330,7 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
           </>
         ) : (
           <>
-            <button className="flex-1 flex items-center gap-2 text-left min-w-0" onClick={onToggleExpand}>
+            <button className="flex-1 flex items-center gap-2 flex-wrap text-left min-w-0" onClick={onToggleExpand}>
               <ExerciseNameDisplay name={exercise.name} currentEquip={currentEquip} />
               {currentEquip && <EquipBadge eq={currentEquip} />}
               {isPR && <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: '#22c55e22', color: '#22c55e' }}>PR!</span>}
