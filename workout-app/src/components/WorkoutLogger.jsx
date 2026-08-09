@@ -302,7 +302,8 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
   const handleAddSet = () => {
     const last = exercise.sets[exercise.sets.length - 1]
     const defaultWeight = last?.weight || (exercise.sets.length === 0 ? (lastSetWeight || '') : '')
-    onAddSet(exercise.name, { weight: defaultWeight, reps: GOAL_REPS })
+    const defaultReps = last?.reps || (exercise.sets.length === 0 ? (lastSetReps || GOAL_REPS) : GOAL_REPS)
+    onAddSet(exercise.name, { weight: defaultWeight, reps: defaultReps })
   }
 
   return (
