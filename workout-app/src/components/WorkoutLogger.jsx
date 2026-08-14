@@ -1375,15 +1375,15 @@ export default function WorkoutLogger() {
             />
           ))}
 
+          {/* Timer stays mounted in one fixed spot — moving it in/out of the exercise
+              list on expand/collapse used to remount it and kill a running countdown */}
+          {renderTimer()}
+
           <button onClick={() => { setShowSelector(true); track(EV.SELECTOR_OPENED, { context: 'active_workout' }) }}
             className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 font-semibold text-sm"
             style={{ background: '#141414', color: '#22c55e', border: '1px dashed #1e1e1e' }}>
             <Plus size={18} /> Add Exercise
           </button>
-
-          {/* Timer stays mounted in one fixed spot — moving it in/out of the exercise
-              list on expand/collapse used to remount it and kill a running countdown */}
-          {renderTimer()}
 
           {/* Workout notes always at bottom */}
           {renderWorkoutNotes()}
