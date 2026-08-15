@@ -275,9 +275,10 @@ export default function ExerciseSelector({ onSelect, onClose, currentExercises =
         </div>
       </div>
 
-      {/* Muscle group tabs (hidden during search) — multi-select, preset from workout split */}
+      {/* Muscle group tabs (hidden during search) — multi-select, preset from workout split.
+          Wraps across rows instead of scrolling horizontally so every group is visible at once. */}
       {!search && (
-        <div className="flex px-4 gap-2 pb-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        <div className="flex flex-wrap px-4 gap-2 pb-2">
           {MUSCLE_GROUPS.map(g => {
             const active = activeGroups.has(g)
             return (
