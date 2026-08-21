@@ -278,6 +278,8 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
   const lastSetReps = lastSet?.reps || 0
   const showLastBadge = !!(lastSet && (lastSetWeight === 'BW' || Number(lastSetWeight) > 0))
   const showPrevReadyToMoveUp = !!(lastSession?.readyToMoveUp && !exercise.readyToMoveUp)
+  const lastNoteEntry = exerciseHistory ? [...exerciseHistory].reverse().find(h => h.notes?.trim()) : null
+  const showPrevNotesHint = !exercise.notes?.trim() && !!lastNoteEntry
 
   const handleRename = () => {
     const trimmed = nameInput.trim()
@@ -479,6 +481,21 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
             style={{ background: '#1e1e1e', color: '#22c55e' }}>
             <Plus size={15} /> Add Set
           </button>
+          {/* Notes from last time this exercise was logged */}
+          {showPrevNotesHint && (
+            <div className="mt-3 px-3 py-2 rounded-xl" style={{ background: '#1a1a1a', border: '1px dashed #2a2a2a' }}>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-xs font-bold" style={{ color: '#555' }}>Notes from last time</span>
+                <button
+                  onClick={() => onUpdateNotes(exercise.name, lastNoteEntry.notes)}
+                  className="text-xs font-semibold flex-shrink-0"
+                  style={{ color: '#22c55e' }}
+                >Use this</button>
+              </div>
+              <div className="text-sm" style={{ color: '#888' }}>{lastNoteEntry.notes}</div>
+            </div>
+          )}
+
           {/* Notes */}
           <textarea
             placeholder="Notes: setup, machine settings, cues..."
@@ -741,6 +758,10 @@ function WorkoutEditModal({ workout, onSave, onClose }) {
     ))
   }
 
+  const updateNotes = (exName, notes) => {
+    setExercises(exs => exs.map(ex => ex.name === exName ? { ...ex, notes } : ex))
+  }
+
   const addSet = (exName) => {
     setExercises(exs => exs.map(ex => {
       if (ex.name !== exName) return ex
@@ -881,6 +902,16 @@ function WorkoutEditModal({ workout, onSave, onClose }) {
                     style={{ background: '#1e1e1e', color: '#22c55e' }}>
                     <Plus size={14} /> Add Set
                   </button>
+
+                  {/* Notes */}
+                  <textarea
+                    placeholder="Notes: setup, machine settings, cues..."
+                    value={ex.notes || ''}
+                    onChange={e => updateNotes(ex.name, e.target.value)}
+                    rows={2}
+                    className="w-full mt-3 px-3 py-2 rounded-xl text-white resize-none outline-none"
+                    style={{ background: '#1a1a1a', fontSize: 14, color: '#aaa', border: '1px solid #2a2a2a', lineHeight: 1.5 }}
+                  />
                 </div>
               </div>
             ))}
