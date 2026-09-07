@@ -122,11 +122,11 @@ function SetRow({ set, index, onUpdate, onRemove, lastSessionSet, exerciseHistor
 
   const currentReps = Number(set.reps) || 0
   const repChips = [
-    ...(currentReps > 1 ? [{ label: '−1', value: String(currentReps - 1) }] : []),
     { label: '8',  value: '8' },
     { label: '10', value: '10' },
     { label: '12', value: '12' },
     { label: '15', value: '15' },
+    ...(currentReps > 1 ? [{ label: '−1', value: String(currentReps - 1) }] : []),
     { label: '+1', value: String(currentReps + 1) },
   ]
 
