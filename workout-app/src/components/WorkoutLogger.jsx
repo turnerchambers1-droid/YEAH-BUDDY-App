@@ -276,6 +276,10 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
   const lastSet = lastSession?.sets?.[lastSession.sets.length - 1] || null
   const lastSetWeight = lastSet?.weight || ''
   const lastSetReps = lastSet?.reps || 0
+  const repsAtLastWeight = lastSetWeight
+    ? lastSession.sets.filter(s => s.weight === lastSetWeight).map(s => Number(s.reps) || 0)
+    : []
+  const bestRepsAtLastWeight = repsAtLastWeight.length > 0 ? Math.max(...repsAtLastWeight) : lastSetReps
   const showLastBadge = !!(lastSet && (lastSetWeight === 'BW' || Number(lastSetWeight) > 0))
   const showPrevReadyToMoveUp = !!(lastSession?.readyToMoveUp && !exercise.readyToMoveUp)
   const lastNoteEntry = exerciseHistory ? [...exerciseHistory].reverse().find(h => h.notes?.trim()) : null
@@ -304,7 +308,7 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
   const handleAddSet = () => {
     const last = exercise.sets[exercise.sets.length - 1]
     const defaultWeight = last?.weight || (exercise.sets.length === 0 ? (lastSetWeight || '') : '')
-    const defaultReps = last?.reps || (exercise.sets.length === 0 ? (lastSetReps || GOAL_REPS) : GOAL_REPS)
+    const defaultReps = last?.reps || (exercise.sets.length === 0 ? (bestRepsAtLastWeight || GOAL_REPS) : GOAL_REPS)
     onAddSet(exercise.name, { weight: defaultWeight, reps: defaultReps })
   }
 
