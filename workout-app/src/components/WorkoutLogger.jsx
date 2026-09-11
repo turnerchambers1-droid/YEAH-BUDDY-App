@@ -55,6 +55,25 @@ function suggestWeight(oneRM, reps) {
   return Math.round(oneRM * factor / 2.5) * 2.5
 }
 
+// Fixed rep targets a goal can be set for
+const GOAL_REP_OPTIONS = ['8', '15']
+
+// Heaviest weight the user has hit the given rep count for in at least 2 sets, across history
+function bestWeightForRepGoal(exerciseHistory, targetReps) {
+  const counts = {}
+  ;(exerciseHistory || []).forEach(session => {
+    (session.sets || []).forEach(s => {
+      if (Number(s.reps) === Number(targetReps) && s.weight !== undefined && s.weight !== null && s.weight !== '') {
+        counts[s.weight] = (counts[s.weight] || 0) + 1
+      }
+    })
+  })
+  const eligible = Object.keys(counts).filter(w => counts[w] >= 2)
+  if (eligible.length === 0) return null
+  eligible.sort((a, b) => (b === 'BW' ? 0 : Number(b)) - (a === 'BW' ? 0 : Number(a)))
+  return eligible[0]
+}
+
 // Rotating daily tagline
 function getDailyTagline() {
   const h   = new Date().getHours()
@@ -303,6 +322,17 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
     setEditingName(false)
   }
 
+  const handleSelectGoalReps = (reps) => {
+    if (exercise.goalReps === reps) {
+      onUpdateGoal(exercise.name, 'goalReps', '')
+      onUpdateGoal(exercise.name, 'goalWeight', '')
+      return
+    }
+    const suggested = bestWeightForRepGoal(exerciseHistory, reps)
+    onUpdateGoal(exercise.name, 'goalReps', reps)
+    if (suggested !== null) onUpdateGoal(exercise.name, 'goalWeight', suggested)
+  }
+
   const handleRemovePress = () => {
     if (confirmRemove) {
       clearTimeout(confirmTimer.current)
@@ -412,32 +442,43 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
         </div>
       )}
 
-      {/* Goal editor — mirrors equipment editing */}
+      {/* Goal editor — rep target picks from 8/15, weight auto-fills from history */}
       {editingGoal && (
-        <div className="mx-4 mb-2 px-3 py-2 rounded-xl flex items-center gap-2" style={{ background: '#1a1a1a' }}>
-          <div className="flex-1">
-            <input
-              type="text" inputMode="decimal" placeholder="goal lbs"
-              value={exercise.goalWeight || ''}
-              onChange={e => onUpdateGoal(exercise.name, 'goalWeight', e.target.value)}
-              className="w-full text-center rounded-lg py-2 text-sm font-semibold outline-none text-white"
-              style={{ background: '#2a2a2a', fontSize: 16 }}
-            />
+        <div className="mx-4 mb-2 px-3 py-2 rounded-xl flex flex-col gap-2" style={{ background: '#1a1a1a' }}>
+          <div className="flex gap-2">
+            {GOAL_REP_OPTIONS.map(r => (
+              <button
+                key={r}
+                onClick={() => handleSelectGoalReps(r)}
+                className="flex-1 py-2 rounded-lg text-sm font-bold"
+                style={{
+                  background: exercise.goalReps === r ? '#22c55e22' : '#2a2a2a',
+                  color: exercise.goalReps === r ? '#22c55e' : '#888',
+                  border: exercise.goalReps === r ? '1px solid #22c55e44' : '1px solid transparent',
+                }}
+              >{r} reps</button>
+            ))}
           </div>
-          <span className="text-xs" style={{ color: '#555' }}>×</span>
-          <div className="flex-1">
-            <input
-              type="number" inputMode="numeric" placeholder="goal reps"
-              value={exercise.goalReps || ''}
-              onChange={e => onUpdateGoal(exercise.name, 'goalReps', e.target.value)}
-              className="w-full text-center rounded-lg py-2 text-sm font-semibold outline-none text-white"
-              style={{ background: '#2a2a2a', fontSize: 16 }}
-            />
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <input
+                type="text" inputMode="decimal" placeholder="goal lbs"
+                value={exercise.goalWeight || ''}
+                onChange={e => onUpdateGoal(exercise.name, 'goalWeight', e.target.value)}
+                className="w-full text-center rounded-lg py-2 text-sm font-semibold outline-none text-white"
+                style={{ background: '#2a2a2a', fontSize: 16 }}
+              />
+            </div>
+            <button onClick={() => setEditingGoal(false)} className="px-3 py-1 rounded-lg text-xs font-bold flex-shrink-0"
+              style={{ background: '#22c55e22', color: '#22c55e' }}>
+              Done
+            </button>
           </div>
-          <button onClick={() => setEditingGoal(false)} className="px-3 py-1 rounded-lg text-xs font-bold flex-shrink-0"
-            style={{ background: '#22c55e22', color: '#22c55e' }}>
-            Done
-          </button>
+          {exercise.goalReps && !exercise.goalWeight && (
+            <div className="text-xs" style={{ color: '#555' }}>
+              No weight has hit {exercise.goalReps} reps twice yet — enter one manually.
+            </div>
+          )}
         </div>
       )}
 
