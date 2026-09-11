@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { track, EV } from '../utils/analytics'
-import { Plus, Trash2, ChevronDown, ChevronUp, ArrowUpCircle, X, Pencil, Archive, Edit3, Zap, Dumbbell } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronUp, ArrowUpCircle, X, Pencil, Archive, Edit3, Zap, Dumbbell, Target } from 'lucide-react'
 import { useWorkoutStore } from '../store/workoutStore'
 import { SPLIT_LABELS, EXERCISES, parseExerciseDisplay, inferEquipment, EQUIP_COLORS } from '../data/exercises'
 import ExerciseSelector from './ExerciseSelector'
@@ -29,6 +29,11 @@ function ExercisePreviewRow({ exercise }) {
             {exercise.sets.length} set{exercise.sets.length !== 1 ? 's' : ''}
             {topSet.weight === 'BW' ? ' · BW' : topSet.weight ? ` · ${topSet.weight} lbs` : ''}
             {topSet.reps ? ` × ${topSet.reps}` : ''}
+          </div>
+        )}
+        {(exercise.goalWeight || exercise.goalReps) && (
+          <div className="text-xs" style={{ color: '#c8b97a' }}>
+            Goal: {exercise.goalWeight ? `${exercise.goalWeight} lbs` : ''}{exercise.goalWeight && exercise.goalReps ? ' × ' : ''}{exercise.goalReps ? `${exercise.goalReps} reps` : ''}
           </div>
         )}
       </div>
@@ -255,15 +260,20 @@ function EquipBadge({ eq }) {
   )
 }
 
-function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMoveUp, onRemove, onUpdateNotes, onRename, onEditEquipment, pr, exerciseHistory, expanded, onToggleExpand }) {
+function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMoveUp, onRemove, onUpdateNotes, onUpdateGoal, onRename, onEditEquipment, pr, exerciseHistory, expanded, onToggleExpand }) {
   const [showLastSession, setShowLastSession] = useState(false)
   const [confirmRemove, setConfirmRemove] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const [editingEquip, setEditingEquip] = useState(false)
+  const [editingGoal, setEditingGoal] = useState(false)
   const [nameInput, setNameInput] = useState(exercise.name)
   const confirmTimer = useRef(null)
 
   const currentEquip = inferEquipment(exercise)
+  const hasGoal = !!(exercise.goalWeight || exercise.goalReps)
+  const currentTopSet = exercise.sets.length > 0
+    ? exercise.sets.reduce((best, s) => (Number(s.weight) >= Number(best.weight) ? s : best), exercise.sets[0])
+    : null
 
   const maxWeight = exercise.sets.length > 0 ? Math.max(...exercise.sets.map(s => Number(s.weight) || 0)) : 0
   const hasBWNow = exercise.sets.some(s => s.weight === 'BW')
@@ -354,6 +364,11 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
                 style={{ background: editingEquip ? '#22c55e22' : 'transparent', color: editingEquip ? '#22c55e' : '#444' }}>
                 <Dumbbell size={14} />
               </button>
+              <button onClick={() => setEditingGoal(v => !v)} title="Set goal weight/reps"
+                className="p-1.5 rounded-lg transition-colors"
+                style={{ background: editingGoal ? '#22c55e22' : 'transparent', color: editingGoal ? '#22c55e' : hasGoal ? '#c8b97a' : '#444' }}>
+                <Target size={14} />
+              </button>
               <button onClick={() => onToggleMoveUp(exercise.name)} title="Ready to move up in weight"
                 className="p-1.5 rounded-lg transition-colors"
                 style={{ background: exercise.readyToMoveUp ? '#00d4ff22' : 'transparent', color: exercise.readyToMoveUp ? '#00d4ff' : '#444' }}>
@@ -393,6 +408,51 @@ function ExerciseCard({ exercise, onAddSet, onUpdateSet, onRemoveSet, onToggleMo
               className="px-2.5 py-1 rounded-full text-xs font-semibold"
               style={{ background: '#2a2a2a', color: '#555' }}
             >Clear</button>
+          )}
+        </div>
+      )}
+
+      {/* Goal editor — mirrors equipment editing */}
+      {editingGoal && (
+        <div className="mx-4 mb-2 px-3 py-2 rounded-xl flex items-center gap-2" style={{ background: '#1a1a1a' }}>
+          <div className="flex-1">
+            <input
+              type="text" inputMode="decimal" placeholder="goal lbs"
+              value={exercise.goalWeight || ''}
+              onChange={e => onUpdateGoal(exercise.name, 'goalWeight', e.target.value)}
+              className="w-full text-center rounded-lg py-2 text-sm font-semibold outline-none text-white"
+              style={{ background: '#2a2a2a', fontSize: 16 }}
+            />
+          </div>
+          <span className="text-xs" style={{ color: '#555' }}>×</span>
+          <div className="flex-1">
+            <input
+              type="number" inputMode="numeric" placeholder="goal reps"
+              value={exercise.goalReps || ''}
+              onChange={e => onUpdateGoal(exercise.name, 'goalReps', e.target.value)}
+              className="w-full text-center rounded-lg py-2 text-sm font-semibold outline-none text-white"
+              style={{ background: '#2a2a2a', fontSize: 16 }}
+            />
+          </div>
+          <button onClick={() => setEditingGoal(false)} className="px-3 py-1 rounded-lg text-xs font-bold flex-shrink-0"
+            style={{ background: '#22c55e22', color: '#22c55e' }}>
+            Done
+          </button>
+        </div>
+      )}
+
+      {/* Goal badge — goal vs. what you've actually logged so far this workout */}
+      {hasGoal && (
+        <div className="mx-4 mb-1 px-3 py-1 rounded-lg flex items-center gap-1.5 flex-wrap" style={{ background: '#1a1a1a' }}>
+          <Target size={12} style={{ color: '#c8b97a' }} />
+          <span className="text-xs" style={{ color: '#555' }}>Goal:</span>
+          <span className="text-xs font-semibold" style={{ color: '#c8b97a' }}>
+            {exercise.goalWeight ? `${exercise.goalWeight} lbs` : ''}{exercise.goalWeight && exercise.goalReps ? ' × ' : ''}{exercise.goalReps ? `${exercise.goalReps} reps` : ''}
+          </span>
+          {currentTopSet && (
+            <span className="text-xs" style={{ color: '#555' }}>
+              · Now: <span style={{ color: '#f5f5f5', fontWeight: 600 }}>{currentTopSet.weight === 'BW' ? 'BW' : `${currentTopSet.weight || '—'} lbs`} × {currentTopSet.reps || '—'}</span>
+            </span>
           )}
         </div>
       )}
@@ -1397,6 +1457,7 @@ export default function WorkoutLogger() {
               onRemoveSet={store.removeSet}
               onToggleMoveUp={(name) => { store.toggleReadyToMoveUp(name); track(EV.MOVE_UP_TOGGLED, { name }) }}
               onUpdateNotes={(name, notes) => { store.updateExerciseNotes(name, notes); if (notes.trim()) track(EV.NOTES_USED, { type: 'exercise' }) }}
+              onUpdateGoal={store.updateExerciseGoal}
               onRemove={(name) => { store.removeExerciseFromWorkout(name); track(EV.EXERCISE_REMOVED, { name, split: activeWorkout.split }) }}
               onRename={(oldName, newName) => {
                 store.renameExerciseInActiveWorkout(oldName, newName)

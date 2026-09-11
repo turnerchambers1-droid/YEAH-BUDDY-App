@@ -152,7 +152,7 @@ export function useWorkoutStore() {
     setState(s => {
       if (!s.activeWorkout) return s
       if (s.activeWorkout.exercises.find(e => e.name === exerciseName)) return s
-      const updated = { ...s.activeWorkout, exercises: [...s.activeWorkout.exercises, { name: exerciseName, sets: [], readyToMoveUp: false, notes: '' }] }
+      const updated = { ...s.activeWorkout, exercises: [...s.activeWorkout.exercises, { name: exerciseName, sets: [], readyToMoveUp: false, notes: '', goalWeight: '', goalReps: '' }] }
       if (uid) updateUserDoc(uid, { activeWorkout: updated })
       return { ...s, activeWorkout: updated }
     })
@@ -198,6 +198,15 @@ export function useWorkoutStore() {
     setState(s => {
       if (!s.activeWorkout) return s
       const updated = { ...s.activeWorkout, exercises: s.activeWorkout.exercises.map(e => e.name === exerciseName ? { ...e, notes } : e) }
+      if (uid) updateUserDoc(uid, { activeWorkout: updated })
+      return { ...s, activeWorkout: updated }
+    })
+  }, [uid])
+
+  const updateExerciseGoal = useCallback((exerciseName, field, value) => {
+    setState(s => {
+      if (!s.activeWorkout) return s
+      const updated = { ...s.activeWorkout, exercises: s.activeWorkout.exercises.map(e => e.name === exerciseName ? { ...e, [field]: value } : e) }
       if (uid) updateUserDoc(uid, { activeWorkout: updated })
       return { ...s, activeWorkout: updated }
     })
@@ -343,7 +352,7 @@ export function useWorkoutStore() {
   }, [uid])
 
   const startFromTemplate = useCallback((template) => {
-    const workout = { id: crypto.randomUUID(), split: template.split, name: template.name, startTime: Date.now(), exercises: template.exercises.map(name => ({ name, sets: [], readyToMoveUp: false, notes: '' })) }
+    const workout = { id: crypto.randomUUID(), split: template.split, name: template.name, startTime: Date.now(), exercises: template.exercises.map(name => ({ name, sets: [], readyToMoveUp: false, notes: '', goalWeight: '', goalReps: '' })) }
     setState(s => ({ ...s, activeWorkout: workout }))
     if (uid) updateUserDoc(uid, { activeWorkout: workout })
   }, [uid])
@@ -469,7 +478,7 @@ export function useWorkoutStore() {
     ...state,
     signOut,
     startWorkout, addExerciseToWorkout, removeExerciseFromWorkout,
-    addSet, updateSet, removeSet, toggleReadyToMoveUp, updateExerciseNotes, updateWorkoutNotes,
+    addSet, updateSet, removeSet, toggleReadyToMoveUp, updateExerciseNotes, updateExerciseGoal, updateWorkoutNotes,
     finishWorkout, discardWorkout,
     softDeleteWorkout, restoreDeletedWorkout, permanentDeleteWorkout,
     archiveWorkout, unarchiveWorkout,
