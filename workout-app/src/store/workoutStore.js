@@ -39,13 +39,28 @@ function unsubscribeAll() {
   activeListeners = []
 }
 
-// Debounced Firestore write for rapidly-changing active workout
+// Debounced Firestore write for rapidly-changing active workout.
+// Pending fields are merged across calls (not replaced) so two updates
+// firing back-to-back — e.g. saving a new custom exercise immediately
+// followed by adding it to the active workout — don't clobber each other.
 let userDocTimer = null
+let pendingUid = null
+let pendingFields = {}
 function updateUserDoc(uid, fields) {
   if (!uid) return
+  if (pendingUid && pendingUid !== uid) {
+    clearTimeout(userDocTimer)
+    updateDoc(doc(db, 'users', pendingUid), pendingFields).catch(() => {})
+    pendingFields = {}
+  }
+  pendingUid = uid
+  pendingFields = { ...pendingFields, ...fields }
   clearTimeout(userDocTimer)
   userDocTimer = setTimeout(() => {
-    updateDoc(doc(db, 'users', uid), fields).catch(() => {})
+    const toWrite = pendingFields
+    pendingFields = {}
+    pendingUid = null
+    updateDoc(doc(db, 'users', uid), toWrite).catch(() => {})
   }, 600)
 }
 
