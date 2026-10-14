@@ -44,8 +44,8 @@ enum ExerciseCatalog {
     // Muscle group tabs relevant to each split — preselects the exercise picker filters.
     static let splitMuscleGroups: [String: [String]] = [
         "ChestBi": ["Chest", "Bicep", "Forearm"],
-        "BackTri": ["Back", "Tricep", "Trap"],
-        "Shoulders": ["Shoulder", "Rear Delt", "Abs"],
+        "BackTri": ["Back", "Tricep"],
+        "Shoulders": ["Shoulder", "Rear Delt", "Trap", "Abs"],
         "LegsAbs": ["Quad", "Hamstring", "Glute", "Calf"],
     ]
 
