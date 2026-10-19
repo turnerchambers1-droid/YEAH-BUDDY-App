@@ -239,7 +239,7 @@
             android:textColor="@color/green"
             android:textSize="12sp"
             android:textStyle="bold" />
-        <View
+        <TextView
             android:layout_width="0dp"
             android:layout_height="1dp"
             android:layout_weight="0.6" />

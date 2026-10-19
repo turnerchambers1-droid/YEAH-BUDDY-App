@@ -317,6 +317,8 @@ fun Sheet(
         remember(window) {
             window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
             window?.setDimAmount(0f)
+            // Draw under the status bar so the screen behind doesn't show through.
+            window?.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
             0
         }
         Column(Modifier.fillMaxSize().background(Theme.bg).statusBarsPadding().navigationBarsPadding().imePadding()) {
