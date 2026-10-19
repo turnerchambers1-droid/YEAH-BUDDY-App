@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and lower: Auto Backup to the Google account. -->
+<full-backup-content>
+    <include domain="file" path="YeahBuddy/data.json" />
+    <include domain="file" path="YeahBuddy/data-previous.json" />
+</full-backup-content>

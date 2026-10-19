@@ -1,0 +1,5 @@
+-keepattributes *Annotation*, InnerClasses
+-keepclassmembers class kotlinx.serialization.json.** { *** Companion; }
+-keep,includedescriptorclasses class com.turnerchambers.yeahbuddy.**$$serializer { *; }
+-keepclassmembers class com.turnerchambers.yeahbuddy.** { *** Companion; }
+-keepclasseswithmembers class com.turnerchambers.yeahbuddy.** { kotlinx.serialization.KSerializer serializer(...); }
