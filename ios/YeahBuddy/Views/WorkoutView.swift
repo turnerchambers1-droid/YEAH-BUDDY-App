@@ -24,6 +24,7 @@ struct WorkoutView: View {
 struct StartWorkoutView: View {
     @Environment(Store.self) private var store
     @State private var showCustom = false
+    @State private var showImport = false
     @State private var editing: Workout?
     @State private var tileName = ""
     @State private var deleting: Workout?
@@ -69,6 +70,16 @@ struct StartWorkoutView: View {
                 }
                 .padding(.horizontal, 16).padding(.top, 12)
 
+                Button { showImport = true } label: {
+                    Label("Log a past workout from text or photo", systemImage: "text.badge.plus")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(maxWidth: .infinity).padding(.vertical, 12)
+                        .foregroundStyle(Theme.soft)
+                        .card(radius: 12)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 16).padding(.top, 12)
+
                 if !store.data.workouts.isEmpty {
                     SectionLabel(text: "Recent — swipe left or long press")
                         .padding(.horizontal, 16).padding(.top, 24).padding(.bottom, 10)
@@ -86,6 +97,7 @@ struct StartWorkoutView: View {
             }
             .padding(.bottom, 32)
         }
+        .sheet(isPresented: $showImport) { ImportWorkoutSheet() }
         .sheet(isPresented: $showCustom) {
             CustomWorkoutSheet { name, exercises in
                 store.startWorkout(split: "custom", name: name, exercises: exercises)

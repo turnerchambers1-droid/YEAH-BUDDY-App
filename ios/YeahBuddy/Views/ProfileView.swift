@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct ProfileView: View {
     @Environment(Store.self) private var store
     @State private var showImporter = false
+    @State private var showTextImport = false
     @State private var importMessage: String?
     @State private var exportFile: CSVFile?
 
@@ -49,6 +50,10 @@ struct ProfileView: View {
                             row(icon: "square.and.arrow.up", iconColor: Theme.green, title: "Export Workouts", subtitle: "Save or share all workouts as CSV")
                         }
                         Divider().overlay(Theme.border)
+                        Button { showTextImport = true } label: {
+                            row(icon: "text.badge.plus", iconColor: Theme.green, title: "Log Workout from Text or Photo", subtitle: "Type, paste, or upload a workout")
+                        }
+                        Divider().overlay(Theme.border)
                         Button { showImporter = true } label: {
                             row(icon: "square.and.arrow.down", iconColor: Theme.soft, title: "Import Workouts", subtitle: "CSV from the web app: Profile → Export Workouts")
                         }
@@ -86,6 +91,7 @@ struct ProfileView: View {
                     importMessage = "Import failed — check CSV format"
                 }
             }
+            .sheet(isPresented: $showTextImport) { ImportWorkoutSheet() }
             .sheet(item: $exportFile) { file in
                 ShareSheet(items: [file.url])
             }

@@ -353,8 +353,11 @@ final class Store {
             d.workouts.append(contentsOf: fresh)
             d.workouts.sort { $0.startTime > $1.startTime }
             // Exercise names we don't know yet become custom exercises.
-            for name in Set(fresh.flatMap { $0.exercises.map(\.name) }) where ExerciseCatalog.find(name, custom: d.customExercises) == nil {
-                d.customExercises.append(ExerciseDef(name: name, split: "ChestBi", muscleGroup: "Other", primaryMuscles: [], secondaryMuscles: [], custom: true))
+            for w in fresh {
+                for name in w.exercises.map(\.name) where ExerciseCatalog.find(name, custom: d.customExercises) == nil {
+                    let split = ExerciseCatalog.splits.contains(w.split) ? w.split : "ChestBi"
+                    d.customExercises.append(ExerciseDef(name: name, split: split, muscleGroup: "Other", primaryMuscles: [], secondaryMuscles: [], custom: true))
+                }
             }
         }
         saveNow()
