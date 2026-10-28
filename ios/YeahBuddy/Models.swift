@@ -31,8 +31,6 @@ struct LoggedExercise: Codable, Hashable, Identifiable {
     var readyToMoveUp = false
     /// Session note: written during this workout, shown until a newer one replaces it.
     var notes = ""
-    var goalWeight = ""
-    var goalReps = ""
     var equipment: String? = nil
 
     init(name: String) { self.name = name }
@@ -44,8 +42,6 @@ struct LoggedExercise: Codable, Hashable, Identifiable {
         sets = try c.decodeIfPresent([LoggedSet].self, forKey: .sets) ?? []
         readyToMoveUp = try c.decodeIfPresent(Bool.self, forKey: .readyToMoveUp) ?? false
         notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
-        goalWeight = try c.decodeIfPresent(String.self, forKey: .goalWeight) ?? ""
-        goalReps = try c.decodeIfPresent(String.self, forKey: .goalReps) ?? ""
         equipment = try c.decodeIfPresent(String.self, forKey: .equipment)
     }
 

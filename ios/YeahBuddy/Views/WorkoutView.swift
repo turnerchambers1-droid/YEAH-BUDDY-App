@@ -233,21 +233,11 @@ struct ExercisePreviewRow: View {
                     Text("\(exercise.sets.count) set\(exercise.sets.count == 1 ? "" : "s")\(top.weight == "BW" ? " · BW" : top.weight.isEmpty ? "" : " · \(top.weight) lbs")\(top.reps.isEmpty ? "" : " × \(top.reps)")")
                         .font(.system(size: 12)).foregroundStyle(Theme.muted)
                 }
-                if !exercise.goalWeight.isEmpty || !exercise.goalReps.isEmpty {
-                    Text("Goal: \(goalText(exercise))").font(.system(size: 12)).foregroundStyle(Theme.gold)
-                }
             }
             Spacer()
         }
         .padding(.vertical, 6)
     }
-}
-
-func goalText(_ ex: LoggedExercise) -> String {
-    var parts: [String] = []
-    if !ex.goalWeight.isEmpty { parts.append("\(ex.goalWeight) lbs") }
-    if !ex.goalReps.isEmpty { parts.append("\(ex.goalReps) reps") }
-    return parts.joined(separator: " × ")
 }
 
 /// Rotating daily tagline (same pools as the web app).

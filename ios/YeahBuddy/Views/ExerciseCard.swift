@@ -13,7 +13,6 @@ struct ExerciseCard: View {
     @State private var editingName = false
     @State private var nameInput = ""
     @State private var editingEquip = false
-    @State private var editingGoal = false
     @State private var showLastSessions = false
     @State private var showNotesHistory = false
     @State private var editingSetup = false
@@ -39,7 +38,6 @@ struct ExerciseCard: View {
             headerRow(currentEquip: currentEquip, isPR: isPR, showPrevMoveUp: showPrevMoveUp)
 
             if editingEquip { equipmentEditor }
-            if editingGoal { goalEditor(history: history) }
 
             VStack(alignment: .leading, spacing: 6) {
                 // Setup note — permanent, always visible.
@@ -56,21 +54,6 @@ struct ExerciseCard: View {
                         .card(Theme.card2, radius: 8)
                     }
                     .buttonStyle(.plain)
-                }
-
-                if !exercise.goalWeight.isEmpty || !exercise.goalReps.isEmpty {
-                    HStack(spacing: 6) {
-                        Image(systemName: "target").font(.system(size: 11)).foregroundStyle(Theme.gold)
-                        Text("Goal:").foregroundStyle(Theme.muted)
-                        Text(goalText(exercise)).fontWeight(.semibold).foregroundStyle(Theme.gold)
-                        if let top = exercise.topSet {
-                            (Text("· Now: ").foregroundStyle(Theme.muted)
-                             + Text("\(top.weight == "BW" ? "BW" : "\(top.weight.isEmpty ? "—" : top.weight) lbs") × \(top.reps.isEmpty ? "—" : top.reps)").fontWeight(.semibold).foregroundStyle(Theme.text))
-                        }
-                    }
-                    .font(.system(size: 12))
-                    .padding(.horizontal, 10).padding(.vertical, 5)
-                    .card(Theme.card2, radius: 8)
                 }
 
                 if let lastSet, lastSet.weight == "BW" || lastSet.weightValue > 0 {
@@ -169,9 +152,6 @@ struct ExerciseCard: View {
 
                 iconButton("pencil", active: false) { nameInput = name; editingName = true; nameFocused = true }
                 iconButton("dumbbell", active: editingEquip) { withAnimation(.snappy) { editingEquip.toggle() } }
-                iconButton("target", active: editingGoal, idle: (!exercise.goalWeight.isEmpty || !exercise.goalReps.isEmpty) ? Theme.gold : Theme.dim) {
-                    withAnimation(.snappy) { editingGoal.toggle() }
-                }
                 iconButton("arrow.up.circle", active: exercise.readyToMoveUp, activeColor: Theme.cyan, size: 17) {
                     store.toggleReadyToMoveUp(name)
                 }
@@ -249,55 +229,6 @@ struct ExerciseCard: View {
         .padding(.horizontal, 16).padding(.bottom, 8)
     }
 
-    private func goalEditor(history: [ExerciseHistoryEntry]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                ForEach(["8", "15"], id: \.self) { r in
-                    let on = exercise.goalReps == r
-                    Button {
-                        if on {
-                            store.updateGoal(name, weight: "", reps: "")
-                        } else {
-                            store.updateGoal(name, weight: bestWeight(for: r, in: history) ?? exercise.goalWeight, reps: r)
-                        }
-                    } label: {
-                        Text("\(r) reps").font(.system(size: 14, weight: .bold))
-                            .frame(maxWidth: .infinity).padding(.vertical, 8)
-                            .foregroundStyle(on ? Theme.green : Theme.soft)
-                            .background(on ? Theme.green.opacity(0.13) : Theme.field, in: RoundedRectangle(cornerRadius: 8))
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(on ? Theme.green.opacity(0.27) : .clear))
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            HStack(spacing: 8) {
-                TextField("goal lbs", text: Binding(get: { exercise.goalWeight }, set: { store.updateGoal(name, weight: $0) }))
-                    .keyboardType(.decimalPad)
-                    .fieldStyle()
-                Button("Done") { withAnimation(.snappy) { editingGoal = false }; hideKeyboard() }
-                    .font(.system(size: 12, weight: .bold))
-                    .padding(.horizontal, 12).padding(.vertical, 6)
-                    .foregroundStyle(Theme.green)
-                    .background(Theme.green.opacity(0.13), in: RoundedRectangle(cornerRadius: 8))
-            }
-            if !exercise.goalReps.isEmpty && exercise.goalWeight.isEmpty {
-                Text("No weight has hit \(exercise.goalReps) reps twice yet — enter one manually.")
-                    .font(.system(size: 12)).foregroundStyle(Theme.muted)
-            }
-        }
-        .padding(10)
-        .card(Theme.card2, radius: 12)
-        .padding(.horizontal, 16).padding(.bottom, 8)
-    }
-
-    /// Heaviest weight hit for the target reps in at least 2 sets across history.
-    private func bestWeight(for reps: String, in history: [ExerciseHistoryEntry]) -> String? {
-        var counts: [String: Int] = [:]
-        for s in history.flatMap(\.sets) where s.reps == reps && !s.weight.isEmpty {
-            counts[s.weight, default: 0] += 1
-        }
-        return counts.filter { $0.value >= 2 }.keys.max { ($0 == "BW" ? 0 : Double($0) ?? 0) < ($1 == "BW" ? 0 : Double($1) ?? 0) }
-    }
 
     // MARK: Expanded
 

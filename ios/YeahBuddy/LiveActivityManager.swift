@@ -1,7 +1,7 @@
 import ActivityKit
 import Foundation
 
-/// Starts the workout Live Activity automatically, keeps it in sync, ends it on finish.
+/// Runs one Live Activity for the whole workout: started once, updated in place, ended on finish.
 @MainActor
 final class LiveActivityManager {
     static let shared = LiveActivityManager()
@@ -16,8 +16,18 @@ final class LiveActivityManager {
         // Going stale when rest ends lets the widget flip to "LIFT!" with the app suspended.
         let content = ActivityContent(state: state, staleDate: state.restEnd)
 
-        if let activity = Activity<WorkoutActivityAttributes>.activities.first(where: { $0.activityState == .active }) {
-            guard state != lastState else { return }
+        // A stale activity is still the live one (it goes stale every time a rest ends), so
+        // count it. Missing that used to start a second activity on top of the old "LIFT!" one.
+        let live = Activity<WorkoutActivityAttributes>.activities.filter {
+            $0.activityState == .active || $0.activityState == .stale
+        }
+        let mine = live.first { abs($0.attributes.workoutStart.timeIntervalSince(workout.startTime)) < 1 }
+        for other in live where other.id != mine?.id {
+            await other.end(nil, dismissalPolicy: .immediate)
+        }
+
+        if let activity = mine {
+            guard state != lastState || activity.activityState == .stale else { return }
             let newPR = state.isPR && (state.setCount != lastState?.setCount || lastState?.isPR != true)
             lastState = state
             if newPR {

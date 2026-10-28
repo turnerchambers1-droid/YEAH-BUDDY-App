@@ -203,12 +203,6 @@ final class Store {
 
     func toggleReadyToMoveUp(_ name: String) { mutateExercise(name) { $0.readyToMoveUp.toggle() } }
     func updateNotes(_ name: String, _ notes: String) { mutateExercise(name) { $0.notes = notes } }
-    func updateGoal(_ name: String, weight: String? = nil, reps: String? = nil) {
-        mutateExercise(name) { ex in
-            if let weight { ex.goalWeight = weight }
-            if let reps { ex.goalReps = reps }
-        }
-    }
     /// Sets (or clears) an exercise's equipment for this and all future workouts.
     func setEquipment(_ name: String, _ equipment: String?) {
         mutate { d in
