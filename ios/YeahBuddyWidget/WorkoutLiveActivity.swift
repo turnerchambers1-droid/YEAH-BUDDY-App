@@ -183,19 +183,17 @@ private struct LockScreenView: View {
     var body: some View {
         let s = context.state
         let phase = Phase(context)
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        Text("YEAH BUDDY").font(.system(size: 10, weight: .black)).foregroundStyle(C.green)
-                        Text("·").foregroundStyle(C.muted)
-                        Text(timerInterval: context.attributes.workoutStart...Date.distantFuture, countsDown: false)
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced)).foregroundStyle(C.muted)
-                            .frame(width: 52, alignment: .leading)
-                    }
+                    // Brand line folded into this row to free height for the big Add Set button
+                    // (iOS clips lock screen Live Activities taller than 160pt).
                     HStack(spacing: 6) {
                         Text(s.exerciseName).font(.system(size: 17, weight: .bold)).foregroundStyle(.white).lineLimit(1)
                         if s.isPR { PRBadge() }
+                        Text(timerInterval: context.attributes.workoutStart...Date.distantFuture, countsDown: false)
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced)).foregroundStyle(C.muted)
+                            .frame(width: 52, alignment: .leading)
                     }
                     if phase.isLift {
                         Text("Rest over — LIFT! 💪").font(.system(size: 13, weight: .bold)).foregroundStyle(C.orange)
@@ -204,11 +202,12 @@ private struct LockScreenView: View {
                     }
                 }
                 Spacer(minLength: 0)
-                RestRing(phase: phase, size: 54, lineWidth: 5, fontSize: 13)
+                RestRing(phase: phase, size: 46, lineWidth: 5, fontSize: 12)
             }
             Controls(state: s, compact: false)
         }
-        .padding(14)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
     }
 }
 
@@ -274,21 +273,29 @@ private struct Controls: View {
                     stepButton(Fmt.step(d), intent: AdjustWeightIntent(delta: d))
                 }
             }
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 stepButton("−1", intent: AdjustRepsIntent(delta: -1))
                 Text("\(state.nextReps.isEmpty ? "—" : state.nextReps) reps")
                     .font(.system(size: compact ? 13 : 15, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .contentTransition(.numericText(value: Fmt.value(state.nextReps)))
-                    .frame(minWidth: 56)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                    .frame(minWidth: 48)
                 stepButton("+1", intent: AdjustRepsIntent(delta: 1))
-                Spacer(minLength: 4)
+                // Big Add Set button: fills the rest of the row so it's easy to hit mid-workout.
                 Button(intent: AddSetIntent()) {
-                    Label("Add Set", systemImage: "plus")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 14).frame(height: compact ? 30 : 32)
-                        .background(C.green, in: Capsule())
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: compact ? 20 : 24, weight: .black))
+                        Text("ADD SET")
+                            .font(.system(size: compact ? 18 : 22, weight: .black, design: .rounded))
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                    }
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: compact ? 44 : 48)
+                    .background(C.green, in: RoundedRectangle(cornerRadius: 14))
+                    .contentShape(RoundedRectangle(cornerRadius: 14))
                 }
                 .buttonStyle(.plain)
             }
