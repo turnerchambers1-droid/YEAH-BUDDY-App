@@ -183,7 +183,7 @@ private struct LockScreenView: View {
     var body: some View {
         let s = context.state
         let phase = Phase(context)
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
@@ -208,7 +208,7 @@ private struct LockScreenView: View {
             }
             Controls(state: s, compact: false)
         }
-        .padding(14)
+        .padding(.horizontal, 14).padding(.vertical, 10)
     }
 }
 
@@ -280,17 +280,22 @@ private struct Controls: View {
                     .font(.system(size: compact ? 13 : 15, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .contentTransition(.numericText(value: Fmt.value(state.nextReps)))
-                    .frame(minWidth: 56)
+                    .lineLimit(1).fixedSize()
                 stepButton("+1", intent: AdjustRepsIntent(delta: 1))
-                Spacer(minLength: 4)
+                // Big target: fills the rest of the row so it's easy to hit mid-workout.
                 Button(intent: AddSetIntent()) {
-                    Label("Add Set", systemImage: "plus")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 14).frame(height: compact ? 30 : 32)
-                        .background(C.green, in: Capsule())
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus.circle.fill").font(.system(size: compact ? 20 : 24, weight: .bold))
+                        Text("ADD SET").font(.system(size: compact ? 18 : 21, weight: .black, design: .rounded))
+                    }
+                    .foregroundStyle(.black)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: compact ? 44 : 50)
+                    .background(C.green, in: RoundedRectangle(cornerRadius: 14))
                 }
                 .buttonStyle(.plain)
+                .padding(.leading, 4)
             }
         }
     }
