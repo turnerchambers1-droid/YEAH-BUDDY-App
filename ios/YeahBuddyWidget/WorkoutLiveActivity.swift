@@ -70,16 +70,23 @@ struct WorkoutLiveActivity: Widget {
             } compactTrailing: {
                 CompactTrailing(phase: phase, state: s)
             } minimal: {
-                switch phase {
-                case .resting(let range):
-                    ProgressView(timerInterval: range, countsDown: true) { EmptyView() } currentValueLabel: { EmptyView() }
-                        .progressViewStyle(.circular)
-                        .tint(C.green)
-                case .lift:
-                    Image(systemName: "flame.fill").foregroundStyle(C.orange)
-                case .idle:
-                    Image(systemName: s.isPR ? "trophy.fill" : "dumbbell.fill").foregroundStyle(s.isPR ? C.gold : C.green)
+                // Shown in the small bubble when another app (like music) shares the island.
+                Group {
+                    switch phase {
+                    case .resting(let range):
+                        ProgressView(timerInterval: range, countsDown: true) { EmptyView() } currentValueLabel: { EmptyView() }
+                            .progressViewStyle(.circular)
+                            .tint(C.green)
+                            .frame(width: 20, height: 20)
+                    case .lift:
+                        Image(systemName: "flame.fill").font(.system(size: 14, weight: .bold)).foregroundStyle(C.orange)
+                    case .idle:
+                        Image(systemName: s.isPR ? "trophy.fill" : "dumbbell.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(s.isPR ? C.gold : C.green)
+                    }
                 }
+                .frame(maxWidth: 24, maxHeight: 24)
             }
             .widgetURL(deepLink)
             .keylineTint(phase.isLift ? C.orange : C.green)
@@ -104,7 +111,7 @@ private struct CompactLeading: View {
                 ProgressView(timerInterval: range, countsDown: true) { EmptyView() } currentValueLabel: { EmptyView() }
                     .progressViewStyle(.circular)
                     .tint(C.green)
-                    .frame(width: 22, height: 22)
+                    .frame(width: 20, height: 20)
             case .lift:
                 Image(systemName: "flame.fill")
                     .font(.system(size: 15, weight: .bold))
@@ -132,16 +139,21 @@ private struct CompactTrailing: View {
                 .monospacedDigit()
                 .foregroundStyle(C.green)
                 .multilineTextAlignment(.trailing)
-                .frame(width: 42)
+                .lineLimit(1).minimumScaleFactor(0.7)
+                .frame(maxWidth: 40)
         case .lift:
             Text("LIFT!")
                 .font(.system(size: 14, weight: .black, design: .rounded))
                 .foregroundStyle(C.orange)
+                .lineLimit(1).minimumScaleFactor(0.7)
+                .frame(maxWidth: 44)
         case .idle:
             Text(state.lastWeight.isEmpty ? "Set \(state.setCount)" : Fmt.weight(state.lastWeight))
                 .font(.system(size: 13, weight: .bold, design: .rounded))
                 .foregroundStyle(state.isPR ? C.gold : .white)
                 .contentTransition(.numericText(value: Fmt.value(state.lastWeight)))
+                .lineLimit(1).minimumScaleFactor(0.6)
+                .frame(maxWidth: 52)
         }
     }
 }
